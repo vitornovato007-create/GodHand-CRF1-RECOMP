@@ -1,17 +1,16 @@
 name: Android ARM64
 
+# Deliberately manual-only: repository edits must never start a build automatically.
+# The maintainer starts the build from Actions after reviewing the changes.
 on:
-  push:
-    branches: [main, "**"]
-  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: android-${{ github.ref }}
-  cancel-in-progress: true
+  group: android-manual-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-arm64:
@@ -29,7 +28,6 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      # v4 avoids the old Node 20 runtime used by setup-android@v3.
       - name: Set up Android SDK tools
         uses: android-actions/setup-android@v4
         with:
