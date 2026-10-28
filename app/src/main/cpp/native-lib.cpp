@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <android/log.h>
+#include "ps2_runtime.h"
 
 #include <cstdint>
 #include <cstring>
@@ -154,6 +155,11 @@ Java_com_crf1_godhand_MainActivity_nativeBuildStatus(JNIEnv* env, jobject /* thi
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_crf1_godhand_RuntimeBridge_nativeRuntimeStatus(JNIEnv* env, jobject /* thiz */) {
+    // This call forces the official PS2Runtime implementation to be pulled from
+    // the static archive into libgodhand_android.so; merely linking the target
+    // would otherwise allow the linker to discard every unused archive object.
+    const PS2Runtime::IoPaths& paths = PS2Runtime::getIoPaths();
+    (void)paths;
 #if defined(GODHAND_UPSTREAM_RUNTIME_LINKED) && defined(__aarch64__)
     constexpr const char* status =
         "RUNTIME_CORE_LINKED: núcleo PS2 oficial ligado à biblioteca ARM64. "
