@@ -16,7 +16,8 @@ jobs:
   build-arm64:
     name: Build APK ARM64
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # The native build is large and intentionally throttled to reduce peak RAM.
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,7 +58,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Print toolchain diagnostics
+      - name: Print toolchain and memory diagnostics
         shell: bash
         run: |
           set -euo pipefail
@@ -66,6 +67,18 @@ jobs:
           gradle --version
           echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-unset}"
+          echo "CPU threads: $(nproc)"
+          echo "--- RAM ---"
+          free -h
+          echo "--- /proc/meminfo ---"
+          grep -E 'MemTotal|MemAvailable|SwapTotal|SwapFree' /proc/meminfo
+          echo "--- cgroup memory limits ---"
+          for f in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.events; do
+            if [ -r "$f" ]; then
+              echo "### $f"
+              cat "$f"
+            fi
+          done
 
       - name: Fetch pinned reference-generated God Hand C++ sources
         shell: bash
@@ -89,8 +102,40 @@ jobs:
           test "$(find external/GodHandAndroidPort/app/src/main/cpp/generated_unity -maxdepth 1 -name 'gh_unity_batch_*.cpp' | wc -l)" -ge 60
           echo "Reference-generated God Hand boot sources are present."
 
-      - name: Build debug APK
-        run: gradle --no-daemon --stacktrace --parallel :app:assembleDebug
+      - name: Build debug APK with bounded parallelism and RAM monitoring
+        shell: bash
+        env:
+          # CMake honors this when its build invocation does not override job count.
+          CMAKE_BUILD_PARALLEL_LEVEL: "2"
+        run: |
+          set -Eeuo pipefail
+
+          report_memory() {
+            while true; do
+              echo "===== Native build memory report $(date -u +'%Y-%m-%dT%H:%M:%SZ') ====="
+              free -h
+              grep -E 'MemAvailable|SwapFree' /proc/meminfo || true
+              for f in /sys/fs/cgroup/memory.current /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.events; do
+                if [ -r "$f" ]; then
+                  echo "### $f"
+                  cat "$f"
+                fi
+              done
+              sleep 60
+            done
+          }
+
+          report_memory &
+          monitor_pid=$!
+          cleanup_monitor() {
+            kill "$monitor_pid" 2>/dev/null || true
+            wait "$monitor_pid" 2>/dev/null || true
+          }
+          trap cleanup_monitor EXIT
+
+          echo "Building ARM64 APK with at most 2 Gradle workers."
+          echo "Gradle parallel project execution is disabled to reduce peak memory."
+          gradle --no-daemon --stacktrace --max-workers=2 --no-parallel :app:assembleDebug
 
       - name: Verify APK and ARM64 native library
         shell: bash
