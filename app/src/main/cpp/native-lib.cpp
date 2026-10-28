@@ -143,6 +143,16 @@ std::string inspectIso(int fd) {
 
 }  // namespace
 
+// raylib's Android platform object references a conventional main() even when
+// its static archive is linked into this app's JNI library. This app is a normal
+// Activity/JNI application (not a NativeActivity), so this entry point is only
+// a link-time compatibility stub and is never used to launch the game.
+int main(int argc, char** argv) {
+    (void)argc;
+    (void)argv;
+    return 0;
+}
+
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_crf1_godhand_MainActivity_nativeBuildStatus(JNIEnv* env, jobject /* thiz */) {
 #if defined(__aarch64__)
