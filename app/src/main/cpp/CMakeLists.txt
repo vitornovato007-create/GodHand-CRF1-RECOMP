@@ -194,7 +194,7 @@ file(GLOB GODHAND_GENERATED_CPP CONFIGURE_DEPENDS
 set(GODHAND_GENERATED_REGISTER "${GODHAND_GENERATED_DIR}/register_functions.cpp")
 set(GODHAND_GAME_CPP "")
 foreach(_godhand_generated_source IN LISTS GODHAND_GENERATED_CPP)
-    if(NOT _godhand_generated_source STREQUAL GODHAND_GENERATED_REGISTER)
+    if(NOT "${_godhand_generated_source}" STREQUAL "${GODHAND_GENERATED_REGISTER}")
         list(APPEND GODHAND_GAME_CPP "${_godhand_generated_source}")
     endif()
 endforeach()
