@@ -231,11 +231,17 @@ if(NOT TARGET ps2_runtime)
 endif()
 
 target_include_directories(ps2_runtime PUBLIC "${sse2neon_SOURCE_DIR}")
-# Keep SSE2NEON private to runtime implementation files. Generated Unity sources
-# include simd_arm64_compat.h/SIMDe; propagating USE_SSE2NEON makes
-# ps2_runtime_macros.h include sse2neon.h in the same translation unit, which
-# collides with SIMDe's _mm_* aliases and SIMD types.
+# Keep SSE2NEON private to the runtime implementation and its standalone runner.
+# The upstream ps2EntryRunner target is still requested by Android Gradle's
+# native build, even when excluded from the default target set. Its main.cpp
+# includes ps2_runtime.h directly; without this definition that header falls
+# through to NDK immintrin.h, which is x86-only and breaks the ARM64 build.
+# Generated Unity sources use SIMDe instead, so do not propagate this definition
+# to godhand_android or its generated source files.
 target_compile_definitions(ps2_runtime PRIVATE USE_SSE2NEON=1)
+if(TARGET ps2EntryRunner)
+    target_compile_definitions(ps2EntryRunner PRIVATE USE_SSE2NEON=1)
+endif()
 
 # Integrate the generated boot-ELF C++ sources already published by the tested
 # Android reference port. Pinning is handled by the manual GitHub Actions workflow.
