@@ -94,6 +94,56 @@ add_subdirectory(
     EXCLUDE_FROM_ALL
 )
 
+# The runtime's generic runner is a desktop/NativeActivity executable, not the
+# JNI library used by this app. Explicitly exclude it from Gradle's "all" build:
+# the Android runner references desktop entry points and is not our app entry.
+if(TARGET ps2EntryRunner)
+    set_target_properties(ps2EntryRunner PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
+# The upstream gamepad backend calls GLFW's private gamepad API. Raylib's
+# Android build does not export those symbols, and this app currently uses the
+# Android UI/JNI path rather than the upstream desktop controller loop. Provide
+# safe no-controller stubs only in the fetched Android source tree.
+set(_godhand_gamepads_cpp "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/lib/ps2_host_gamepads.cpp")
+file(READ "${_godhand_gamepads_cpp}" _godhand_gamepads_source)
+set(_godhand_gamepads_original ${_godhand_gamepads_source})
+set(_godhand_glfw_block [=[
+        extern "C"
+        {
+            struct GlfwGamepadState
+            {
+                unsigned char buttons[15];
+                float axes[6];
+            };
+            int glfwJoystickIsGamepad(int jid);
+            int glfwGetGamepadState(int jid, GlfwGamepadState *state);
+            const char *glfwGetGamepadName(int jid);
+        }
+]=])
+set(_godhand_glfw_android_block [=[
+        extern "C"
+        {
+            struct GlfwGamepadState
+            {
+                unsigned char buttons[15];
+                float axes[6];
+            };
+            inline int glfwJoystickIsGamepad(int jid) { (void)jid; return 0; }
+            inline int glfwGetGamepadState(int jid, GlfwGamepadState *state) { (void)jid; (void)state; return 0; }
+            inline const char *glfwGetGamepadName(int jid) { (void)jid; return nullptr; }
+        }
+]=])
+string(FIND "${_godhand_gamepads_source}" "${_godhand_glfw_block}" _godhand_glfw_block_found)
+if(_godhand_glfw_block_found EQUAL -1)
+    message(FATAL_ERROR "Expected GLFW gamepad block was not found in pinned upstream ps2_host_gamepads.cpp.")
+endif()
+string(REPLACE "${_godhand_glfw_block}" "${_godhand_glfw_android_block}" _godhand_gamepads_source "${_godhand_gamepads_source}")
+if(_godhand_gamepads_source STREQUAL _godhand_gamepads_original)
+    message(FATAL_ERROR "Android gamepad compatibility patch did not modify ps2_host_gamepads.cpp.")
+endif()
+file(WRITE "${_godhand_gamepads_cpp}" "${_godhand_gamepads_source}")
+
 if(NOT TARGET ps2_runtime)
     message(FATAL_ERROR "The official God Hand PS2 runtime target was not created.")
 endif()
