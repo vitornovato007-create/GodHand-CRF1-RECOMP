@@ -1,13 +1,22 @@
 # GodHand-CRF1-RECOMP
 
-Projeto experimental para investigar a adaptação do God Hand Recompiled para Android ARM64.
+Projeto experimental para investigar a adaptação do [God Hand Recompiled](https://github.com/LasVola/godhand-recomp) para Android ARM64.
 
-## Estado atual
+## Estado atual — launcher e diagnóstico
 
-A estrutura Android inicial está sendo preparada para validar a cadeia de compilação Java/Gradle + Android NDK e gerar um APK de diagnóstico. **Isso ainda não é um port jogável** e não contém o jogo, ISO, ELF, overlays ou assets protegidos por direitos autorais.
+- Launcher Android em Kotlin com seleção de ISO pelo seletor de documentos do sistema.
+- A URI da ISO é persistida com a permissão concedida pelo Android; o app não copia a ISO inteira para o armazenamento interno.
+- O botão **Jogar** verifica se a ISO selecionada continua acessível e registra cada etapa.
+- Log persistente em armazenamento privado do app, Logcat e botão para compartilhar/exportar o texto do diagnóstico.
+- A biblioteca JNI é carregada somente depois de o usuário selecionar uma ISO e tocar em **Jogar**.
+- O workflow GitHub Actions compila um APK de diagnóstico e verifica a biblioteca `arm64-v8a`.
 
-O objetivo é estudar e adaptar o código público do projeto upstream [LasVola/godhand-recomp](https://github.com/LasVola/godhand-recomp), respeitando a GPL-3.0 e as licenças das dependências. O usuário deve fornecer sua própria cópia legítima do jogo quando uma etapa realmente exigir os dados originais.
+**Importante:** este commit ainda não é um port jogável. A checagem nativa retorna explicitamente `RUNTIME_NOT_INTEGRATED`. O runtime upstream usa componentes de desktop/Windows e depende de código recompilado específico do executável do jogo; ainda é necessário portar e integrar o runtime PS2 (GS, IOP, áudio, entradas, overlays e código gerado) para Android. Não seria correto alegar que isso está pronto apenas por criar um seletor de ISO ou uma biblioteca JNI.
 
-## Compilação
+## ISO e direitos autorais
 
-O workflow `Android ARM64` compila o APK de diagnóstico e verifica se a biblioteca nativa `libgodhand_android.so` foi empacotada em `arm64-v8a`. A presença dessa biblioteca confirma somente a cadeia de build inicial, não a compatibilidade do jogo.
+Use somente sua própria cópia legítima da versão USA exigida pelo projeto upstream (SLUS-21503). O repositório não inclui ISO, ELF, overlays, assets nem outros dados do jogo.
+
+## Build
+
+O workflow `Android ARM64` instala Java/Android SDK/NDK/CMake, compila o APK debug e publica o artefato `GodHand-CRF1-Android-ARM64-debug`. A presença da biblioteca nativa confirma apenas a cadeia de build, não a compatibilidade do jogo.
