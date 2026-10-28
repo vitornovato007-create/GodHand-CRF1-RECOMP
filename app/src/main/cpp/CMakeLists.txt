@@ -27,6 +27,20 @@ if(NOT godhand_upstream_POPULATED)
     FetchContent_Populate(godhand_upstream)
 endif()
 
+# Android NDK's libc++ can expose filesystem clock ticks as an integer type
+# for which std::to_string has no unique overload. Apply a narrow compatibility
+# fix to the pinned upstream source instead of modifying unrelated runtime code.
+set(_godhand_pnach_cpp "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/lib/ps2_pnach.cpp")
+file(READ "${_godhand_pnach_cpp}" _godhand_pnach_source)
+set(_godhand_pnach_original "std::to_string(time.time_since_epoch().count())")
+set(_godhand_pnach_fixed "std::to_string(static_cast<long long>(time.time_since_epoch().count()))")
+string(FIND "${_godhand_pnach_source}" "${_godhand_pnach_original}" _godhand_pnach_match)
+if(_godhand_pnach_match EQUAL -1)
+    message(FATAL_ERROR "Expected Android compatibility target was not found in upstream ps2_pnach.cpp; review the pinned upstream revision.")
+endif()
+string(REPLACE "${_godhand_pnach_original}" "${_godhand_pnach_fixed}" _godhand_pnach_source "${_godhand_pnach_source}")
+file(WRITE "${_godhand_pnach_cpp}" "${_godhand_pnach_source}")
+
 FetchContent_Declare(
     sse2neon
     GIT_REPOSITORY https://github.com/DLTcollab/sse2neon.git
