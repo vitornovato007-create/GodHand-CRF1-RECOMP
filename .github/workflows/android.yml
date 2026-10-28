@@ -76,10 +76,14 @@ jobs:
           git -C external/GodHandAndroidPort sparse-checkout init --cone
           git -C external/GodHandAndroidPort sparse-checkout set \
             app/src/main/cpp/generated \
-            app/src/main/cpp/generated_unity \
-            app/src/main/cpp/thirdparty/simde
+            app/src/main/cpp/generated_unity
           git -C external/GodHandAndroidPort checkout --detach 5f14ee6a84eb0213372c054c690e6a58513c1a17
-          git -C external/GodHandAndroidPort submodule update --init --depth 1 app/src/main/cpp/thirdparty/simde
+
+          # The reference repository pins SIMDe as a gitlink but does not publish
+          # a .gitmodules file. Fetch that exact gitlink commit explicitly.
+          mkdir -p external/GodHandAndroidPort/app/src/main/cpp/thirdparty
+          git clone --filter=blob:none --no-checkout https://github.com/simd-everywhere/simde.git external/GodHandAndroidPort/app/src/main/cpp/thirdparty/simde
+          git -C external/GodHandAndroidPort/app/src/main/cpp/thirdparty/simde checkout --detach 2e5224981e9123b8fe89a9833a978556d636a565
           test -s external/GodHandAndroidPort/app/src/main/cpp/generated/register_functions.cpp
           test -s external/GodHandAndroidPort/app/src/main/cpp/generated/ps2_recompiled_functions.h
           test "$(find external/GodHandAndroidPort/app/src/main/cpp/generated_unity -maxdepth 1 -name 'gh_unity_batch_*.cpp' | wc -l)" -ge 60
