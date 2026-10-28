@@ -185,7 +185,7 @@ target_compile_definitions(ps2_runtime PUBLIC USE_SSE2NEON=1)
 # Android reference port. Pinning is handled by the manual GitHub Actions workflow.
 # The generated tree is large, so Actions sparse-checks it out instead of duplicating
 # ~185 MB / 10k generated function files in this repository.
-get_filename_component(GODHAND_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../.." ABSOLUTE)
+get_filename_component(GODHAND_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
 set(GODHAND_REFERENCE_CPP_DIR
     "${GODHAND_REPO_ROOT}/external/GodHandAndroidPort/app/src/main/cpp")
 set(GODHAND_REFERENCE_GENERATED_DIR "${GODHAND_REFERENCE_CPP_DIR}/generated")
