@@ -208,11 +208,15 @@ if(EXISTS "${GODHAND_REFERENCE_GENERATED_DIR}/register_functions.cpp"
     # dispatch table. Unity wrappers preserve the original relative includes and
     # avoid compiling 10k individual translation units.
     set(GODHAND_GENERATED_DIR "${GODHAND_REFERENCE_GENERATED_DIR}")
+    # The Unity batches provide function bodies; register_functions.cpp supplies
+    # the dispatch table consumed by PS2Runtime. Without this file, the code can
+    # compile but the runtime has no game function table to execute.
+    set(GODHAND_REGISTER_SOURCE "${GODHAND_REFERENCE_GENERATED_DIR}/register_functions.cpp")
     set(GODHAND_GAME_CPP ${GODHAND_REFERENCE_UNITY_CPP})
     set(GODHAND_GAME_CODE_READY ON)
     set(GODHAND_REFERENCE_CODE_ACTIVE ON)
     list(LENGTH GODHAND_REFERENCE_UNITY_CPP _godhand_unity_count)
-    message(STATUS "God Hand: linking reference-generated boot code via ${_godhand_unity_count} Unity source files")
+    message(STATUS "God Hand: linking generated dispatch table plus ${_godhand_unity_count} Unity source files")
 else()
     # Allow locally generated output too, useful for a future source-generation run.
     file(GLOB GODHAND_GENERATED_CPP CONFIGURE_DEPENDS
