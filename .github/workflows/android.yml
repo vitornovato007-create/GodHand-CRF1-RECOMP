@@ -67,6 +67,23 @@ jobs:
           echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
           echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-unset}"
 
+      - name: Fetch pinned reference-generated God Hand C++ sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p external
+          git clone --filter=blob:none --no-checkout https://github.com/owaissseeee/GodHandAndroidPort.git external/GodHandAndroidPort
+          git -C external/GodHandAndroidPort sparse-checkout init --cone
+          git -C external/GodHandAndroidPort sparse-checkout set \
+            app/src/main/cpp/generated \
+            app/src/main/cpp/generated_unity \
+            app/src/main/cpp/simd_arm64_compat.h
+          git -C external/GodHandAndroidPort checkout --detach 5f14ee6a84eb0213372c054c690e6a58513c1a17
+          test -s external/GodHandAndroidPort/app/src/main/cpp/generated/register_functions.cpp
+          test -s external/GodHandAndroidPort/app/src/main/cpp/generated/ps2_recompiled_functions.h
+          test "$(find external/GodHandAndroidPort/app/src/main/cpp/generated_unity -maxdepth 1 -name 'gh_unity_batch_*.cpp' | wc -l)" -ge 60
+          echo "Reference-generated God Hand boot sources are present."
+
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace --parallel :app:assembleDebug
 
