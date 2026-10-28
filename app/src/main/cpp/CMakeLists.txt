@@ -245,7 +245,11 @@ add_library(godhand_android SHARED
     ${GODHAND_GAME_CPP}
 )
 target_compile_features(godhand_android PRIVATE cxx_std_20)
-target_include_directories(godhand_android PRIVATE "${GODHAND_GENERATED_DIR}" "${GODHAND_REFERENCE_CPP_DIR}")
+target_include_directories(godhand_android PRIVATE
+    "${GODHAND_GENERATED_DIR}"
+    "${GODHAND_REFERENCE_CPP_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 
 # Keep strict warnings as errors, except for unused parameters in upstream headers
 # and no-op virtual methods. Clang/NDK reports these in sse2neon and gs_backend.h.
