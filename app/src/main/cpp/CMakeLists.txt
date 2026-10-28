@@ -181,14 +181,44 @@ endif()
 target_include_directories(ps2_runtime PUBLIC "${sse2neon_SOURCE_DIR}")
 target_compile_definitions(ps2_runtime PUBLIC USE_SSE2NEON=1)
 
-# The official runner normally supplies this table from generated game sources.
-# Until those are available, use the upstream empty table so the runtime core links
-# honestly without pretending that game functions exist.
+# Link ISO-specific game code when the official recompiler output is present.
+# build.py generate writes C++ files to this directory. Keep the empty upstream
+# registration table only as a diagnostic fallback; never report the game as ready
+# unless both generated function sources and their registration table are present.
+set(GODHAND_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated" CACHE PATH
+    "Directory containing C++ sources generated from the user's God Hand USA disc")
+
+file(GLOB GODHAND_GENERATED_CPP CONFIGURE_DEPENDS
+    "${GODHAND_GENERATED_DIR}/*.cpp"
+)
+set(GODHAND_GENERATED_REGISTER "${GODHAND_GENERATED_DIR}/register_functions.cpp")
+set(GODHAND_GAME_CPP "")
+foreach(_godhand_generated_source IN LISTS GODHAND_GENERATED_CPP)
+    if(NOT _godhand_generated_source STREQUAL GODHAND_GENERATED_REGISTER)
+        list(APPEND GODHAND_GAME_CPP "${_godhand_generated_source}")
+    endif()
+endforeach()
+
+if(EXISTS "${GODHAND_GENERATED_REGISTER}" AND GODHAND_GAME_CPP)
+    set(GODHAND_REGISTER_SOURCE "${GODHAND_GENERATED_REGISTER}")
+    set(GODHAND_GAME_CODE_READY ON)
+    message(STATUS "God Hand: linking ${GODHAND_GAME_CPP} generated game source file(s)")
+else()
+    set(GODHAND_REGISTER_SOURCE
+        "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/runner/register_functions.cpp")
+    set(GODHAND_GAME_CODE_READY OFF)
+    message(WARNING
+        "God Hand game-specific C++ is not ready: expected generated/*.cpp plus "
+        "generated/register_functions.cpp. The APK will contain diagnostics/runtime only.")
+endif()
+
 add_library(godhand_android SHARED
     native-lib.cpp
-    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/runner/register_functions.cpp"
+    ${GODHAND_REGISTER_SOURCE}
+    ${GODHAND_GAME_CPP}
 )
 target_compile_features(godhand_android PRIVATE cxx_std_20)
+target_include_directories(godhand_android PRIVATE "${GODHAND_GENERATED_DIR}")
 
 # Keep strict warnings as errors, except for unused parameters in upstream headers
 # and no-op virtual methods. Clang/NDK reports these in sse2neon and gs_backend.h.
@@ -199,6 +229,9 @@ target_compile_options(godhand_android PRIVATE
     -Wno-error=unused-parameter
 )
 target_compile_definitions(godhand_android PRIVATE GODHAND_UPSTREAM_RUNTIME_LINKED=1)
+if(GODHAND_GAME_CODE_READY)
+    target_compile_definitions(godhand_android PRIVATE GODHAND_GAME_CODE_LINKED=1)
+endif()
 target_link_libraries(godhand_android PRIVATE ps2_runtime)
 
 find_library(log-lib log)
