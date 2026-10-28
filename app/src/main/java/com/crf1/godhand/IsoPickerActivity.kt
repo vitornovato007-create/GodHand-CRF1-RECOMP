@@ -122,7 +122,7 @@ class IsoPickerActivity : ComponentActivity() {
         content.addView(statusText, matchWrap())
 
         val note = TextView(this).apply {
-            text = "\nAviso: esta versão ainda não contém o runtime PS2 portado. O log indicará essa condição em vez de fingir que o jogo iniciou."
+            text = "\nO núcleo do runtime PS2 oficial está sendo integrado. A execução do jogo só será possível quando o código recompilado específico da versão USA da ISO também estiver gerado e ligado ao APK."
             textSize = 12f
             setPadding(0, dp(18), 0, 0)
         }
