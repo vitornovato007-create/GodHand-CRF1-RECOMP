@@ -179,7 +179,11 @@ if(NOT TARGET ps2_runtime)
 endif()
 
 target_include_directories(ps2_runtime PUBLIC "${sse2neon_SOURCE_DIR}")
-target_compile_definitions(ps2_runtime PUBLIC USE_SSE2NEON=1)
+# Keep SSE2NEON private to runtime implementation files. Generated Unity sources
+# include simd_arm64_compat.h/SIMDe; propagating USE_SSE2NEON makes
+# ps2_runtime_macros.h include sse2neon.h in the same translation unit, which
+# collides with SIMDe's _mm_* aliases and SIMD types.
+target_compile_definitions(ps2_runtime PRIVATE USE_SSE2NEON=1)
 
 # Integrate the generated boot-ELF C++ sources already published by the tested
 # Android reference port. Pinning is handled by the manual GitHub Actions workflow.
