@@ -336,6 +336,13 @@ if(GODHAND_REFERENCE_CODE_ACTIVE)
     set_source_files_properties(${GODHAND_GAME_CPP} ${GODHAND_REGISTER_SOURCE}
         PROPERTIES COMPILE_DEFINITIONS "GODHAND_USE_SIMDE=1"
     )
+
+    # native-lib.cpp includes ps2_runtime.h directly. Give it the same SIMD
+    # header-selection define as generated code so ARM64 never pulls Clang's
+    # x86-only immintrin.h from that public runtime header.
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/native-lib.cpp
+        PROPERTIES COMPILE_DEFINITIONS "GODHAND_USE_SIMDE=1"
+    )
 endif()
 target_compile_definitions(godhand_android PRIVATE GODHAND_UPSTREAM_RUNTIME_LINKED=1)
 if(GODHAND_GAME_CODE_READY)
