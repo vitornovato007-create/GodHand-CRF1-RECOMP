@@ -52,6 +52,39 @@ if(NOT sse2neon_POPULATED)
     FetchContent_Populate(sse2neon)
 endif()
 
+# The upstream runtime includes Intel intrinsic headers directly (for example
+# <xmmintrin.h>). Clang's NDK versions of those headers deliberately reject
+# AArch64, so route all runtime intrinsic includes through sse2neon on Android.
+# Patch only the fetched, pinned runtime tree; the upstream repository is untouched.
+file(GLOB_RECURSE _godhand_runtime_sources LIST_DIRECTORIES FALSE
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/*.c"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/*.cc"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/*.cpp"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/*.h"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/*.hpp"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/*.inl"
+)
+set(_godhand_x86_intrinsic_headers
+    xmmintrin.h
+    emmintrin.h
+    pmmintrin.h
+    tmmintrin.h
+    smmintrin.h
+    nmmintrin.h
+    mmintrin.h
+)
+foreach(_godhand_source IN LISTS _godhand_runtime_sources)
+    file(READ "${_godhand_source}" _godhand_source_text)
+    set(_godhand_source_original "${_godhand_source_text}")
+    foreach(_godhand_intrinsic_header IN LISTS _godhand_x86_intrinsic_headers)
+        string(REPLACE "#include <${_godhand_intrinsic_header}>" "#include <sse2neon.h>" _godhand_source_text "${_godhand_source_text}")
+        string(REPLACE "#include \"${_godhand_intrinsic_header}\"" "#include <sse2neon.h>" _godhand_source_text "${_godhand_source_text}")
+    endforeach()
+    if(NOT _godhand_source_text STREQUAL _godhand_source_original)
+        file(WRITE "${_godhand_source}" "${_godhand_source_text}")
+    endif()
+endforeach()
+
 # Import only the official PS2 runtime subproject. Adding the upstream top-level
 # project would fail because this Android repo intentionally does not contain
 # the ISO-specific generated C++ files under generated/.
