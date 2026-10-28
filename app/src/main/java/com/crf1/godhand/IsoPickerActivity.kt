@@ -219,23 +219,26 @@ class IsoPickerActivity : ComponentActivity() {
 
         try {
             DiagnosticLog.log("PLAY_VALIDATE", "Rechecking selected ISO: ${selectedIsoName ?: uri}")
-            contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
+            val bridge = RuntimeBridge()
+            val inspectionResult = contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
                 val size = descriptor.statSize
-                DiagnosticLog.log("PLAY_VALIDATE", "ISO descriptor opened; size=$size bytes")
+                DiagnosticLog.log("PLAY_VALIDATE", "ISO descriptor opened; size=$size bytes; fd=${descriptor.fd}")
                 if (size > 0 && size < 1_048_576) {
                     throw IllegalArgumentException("A imagem tem menos de 1 MiB ($size bytes).")
                 }
+                DiagnosticLog.log("PLAY_NATIVE_ISO_INSPECT", "Checking ISO9660 and expected God Hand boot files")
+                bridge.nativeInspectIso(descriptor.fd)
             } ?: throw IllegalStateException("O Android não conseguiu reabrir a ISO selecionada.")
 
-            DiagnosticLog.log("PLAY_NATIVE_PROBE", "ISO accessible; attempting to load native diagnostic library")
-            val bridge = RuntimeBridge()
-            val result = bridge.nativeRuntimeStatus()
-            DiagnosticLog.log("PLAY_NATIVE_RESULT", result)
-            updateStatus(result)
+            DiagnosticLog.log("PLAY_NATIVE_RESULT", inspectionResult)
+            val runtimeStatus = bridge.nativeRuntimeStatus()
+            DiagnosticLog.log("PLAY_RUNTIME_STATUS", runtimeStatus)
+            updateStatus(inspectionResult)
+            val isExpectedDisc = inspectionResult.startsWith("ISO_OK:")
             AlertDialog.Builder(this)
-                .setTitle("Runtime ainda não integrado")
+                .setTitle(if (isExpectedDisc) "Runtime integrado parcialmente" else "ISO não reconhecida")
                 .setMessage(
-                    "A ISO foi localizada e a biblioteca ARM64 respondeu corretamente, mas o runtime PS2 e o código recompilado do jogo ainda não estão ligados ao APK.\n\nResultado: $result\n\nUse Exportar log de diagnóstico para compartilhar o registro."
+                    "$inspectionResult\n\nEstado do runtime: $runtimeStatus\n\nA verificação confirma a estrutura do disco; ela não inicia o jogo enquanto o código recompilado específico de God Hand não estiver gerado e ligado ao APK."
                 )
                 .setPositiveButton("OK", null)
                 .show()
