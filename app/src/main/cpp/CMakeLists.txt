@@ -144,6 +144,36 @@ if(_godhand_gamepads_source STREQUAL _godhand_gamepads_original)
 endif()
 file(WRITE "${_godhand_gamepads_cpp}" "${_godhand_gamepads_source}")
 
+# Gradle treats every SHARED target discovered in externalNativeBuild as an
+# Android native library and explicitly asks Ninja to link it. The upstream
+# runner is not the JNI library used by this app. Convert only its Android
+# target to STATIC in the fetched upstream tree, so Gradle does not try to
+# package/link the NativeActivity runner as a second application library.
+set(_godhand_runtime_cmake "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/CMakeLists.txt")
+file(READ "${_godhand_runtime_cmake}" _godhand_runtime_cmake_source)
+set(_godhand_runner_shared_block [=[
+if(PS2X_IS_ANDROID)
+    add_library(ps2EntryRunner SHARED
+        ${RUNNER_SRC_FILES}
+    )
+
+    target_link_options(ps2EntryRunner PRIVATE "-Wl,--undefined=ANativeActivity_onCreate")
+]=])
+set(_godhand_runner_static_block [=[
+if(PS2X_IS_ANDROID)
+    add_library(ps2EntryRunner STATIC
+        ${RUNNER_SRC_FILES}
+    )
+
+    # The Android app uses JNI through libgodhand_android, not NativeActivity.
+]=])
+string(FIND "${_godhand_runtime_cmake_source}" "${_godhand_runner_shared_block}" _godhand_runner_block_found)
+if(_godhand_runner_block_found EQUAL -1)
+    message(FATAL_ERROR "Expected Android ps2EntryRunner SHARED target was not found in the pinned upstream CMakeLists.txt.")
+endif()
+string(REPLACE "${_godhand_runner_shared_block}" "${_godhand_runner_static_block}" _godhand_runtime_cmake_source "${_godhand_runtime_cmake_source}")
+file(WRITE "${_godhand_runtime_cmake}" "${_godhand_runtime_cmake_source}")
+
 if(NOT TARGET ps2_runtime)
     message(FATAL_ERROR "The official God Hand PS2 runtime target was not created.")
 endif()
