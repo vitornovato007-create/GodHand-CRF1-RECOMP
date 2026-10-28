@@ -105,6 +105,38 @@ foreach(_godhand_simde_header IN ITEMS
     endif()
 endforeach()
 
+# SIMDe's ARM64 implementation requires immediate (compile-time constant)
+# shift counts for _mm_srli_epi64/_mm_slli_epi64. The pinned upstream QFSRV
+# implementation computes bitShift at runtime, so use equivalent scalar
+# 64-bit lane operations for that one dynamic shift in the fetched source tree.
+set(_godhand_qfsrv_header "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/include/ps2_runtime_macros.h")
+file(READ "${_godhand_qfsrv_header}" _godhand_qfsrv_source)
+set(_godhand_qfsrv_original [=[
+        if (bitShift > 0)
+            result = _mm_or_si128(_mm_srli_epi64(result, bitShift),
+                                  _mm_slli_epi64(_mm_bsrli_si128(result, 8), 64 - bitShift));
+]=])
+set(_godhand_qfsrv_fixed [=[
+        if (bitShift > 0)
+        {
+            uint64_t low;
+            uint64_t high;
+            std::memcpy(&low, buf, sizeof(low));
+            std::memcpy(&high, buf + 8, sizeof(high));
+            low = (low >> bitShift) | (high << (64 - bitShift));
+            high >>= bitShift;
+            std::memcpy(buf, &low, sizeof(low));
+            std::memcpy(buf + 8, &high, sizeof(high));
+            result = _mm_load_si128((__m128i *)buf);
+        }
+]=])
+string(FIND "${_godhand_qfsrv_source}" "${_godhand_qfsrv_original}" _godhand_qfsrv_match)
+if(_godhand_qfsrv_match EQUAL -1)
+    message(FATAL_ERROR "Expected dynamic QFSRV shift was not found in pinned ps2_runtime_macros.h; review the upstream source before patching.")
+endif()
+string(REPLACE "${_godhand_qfsrv_original}" "${_godhand_qfsrv_fixed}" _godhand_qfsrv_source "${_godhand_qfsrv_source}")
+file(WRITE "${_godhand_qfsrv_header}" "${_godhand_qfsrv_source}")
+
 # Import only the official PS2 runtime subproject. Adding the upstream top-level
 # project would fail because this Android repo intentionally does not contain
 # the ISO-specific generated C++ files under generated/.
