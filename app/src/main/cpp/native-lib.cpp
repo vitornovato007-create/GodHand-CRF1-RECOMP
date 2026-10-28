@@ -131,13 +131,13 @@ std::string inspectIso(int fd) {
     __android_log_print(ANDROID_LOG_INFO, GH_LOG_TAG,
                         "ISO9660 validada: SYSTEM.CNF e SLUS_215.03 encontrados.");
 #if defined(GODHAND_UPSTREAM_RUNTIME_LINKED) && defined(GODHAND_GAME_CODE_LINKED)
-    return "ISO_OK: God Hand USA (SLUS-21503) detectado.\\n"
-           "RUNTIME_CORE_LINKED: núcleo PS2 oficial incluído na biblioteca ARM64.\\n"
+    return "ISO_OK: God Hand USA (SLUS-21503) detectado.\n"
+           "RUNTIME_CORE_LINKED: núcleo PS2 oficial incluído na biblioteca ARM64.\n"
            "GAME_CODE_LINKED: fontes C++ recompiladas e tabela de funções encontradas no build. "
            "A inicialização completa ainda depende da integração do caminho de boot e do backend gráfico.";
 #elif defined(GODHAND_UPSTREAM_RUNTIME_LINKED)
-    return "ISO_OK: God Hand USA (SLUS-21503) detectado.\\n"
-           "RUNTIME_CORE_LINKED: núcleo PS2 oficial incluído na biblioteca ARM64.\\n"
+    return "ISO_OK: God Hand USA (SLUS-21503) detectado.\n"
+           "RUNTIME_CORE_LINKED: núcleo PS2 oficial incluído na biblioteca ARM64.\n"
            "GAME_CODE_MISSING: não foram encontrados fontes C++ recompilados e register_functions.cpp "
            "em app/src/main/cpp/generated/. O APK ainda não pode executar o jogo.";
 #else
