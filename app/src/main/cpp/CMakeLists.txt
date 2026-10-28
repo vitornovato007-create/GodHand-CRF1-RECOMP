@@ -62,7 +62,15 @@ add_library(godhand_android SHARED
     "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/runner/register_functions.cpp"
 )
 target_compile_features(godhand_android PRIVATE cxx_std_20)
-target_compile_options(godhand_android PRIVATE -Wall -Wextra -Werror)
+
+# Keep strict warnings as errors, except for unused parameters in upstream headers
+# and no-op virtual methods. Clang/NDK reports these in sse2neon and gs_backend.h.
+target_compile_options(godhand_android PRIVATE
+    -Wall
+    -Wextra
+    -Werror
+    -Wno-error=unused-parameter
+)
 target_compile_definitions(godhand_android PRIVATE GODHAND_UPSTREAM_RUNTIME_LINKED=1)
 target_link_libraries(godhand_android PRIVATE ps2_runtime)
 
