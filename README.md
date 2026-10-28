@@ -27,9 +27,18 @@ O CMake Android importa somente o subdiretório runtime/ do projeto oficial, e n
 
 ## Integração do código recompilado
 
-O CMake agora procura fontes geradas em `app/src/main/cpp/generated/`. Para marcar o código do jogo como ligado, essa pasta precisa conter pelo menos um arquivo C++ gerado além de `register_functions.cpp`, e a própria tabela `register_functions.cpp`. Se os arquivos não existirem, o build mantém a tabela vazia de diagnóstico e o JNI informa `GAME_CODE_MISSING`; ele não finge que o jogo pode iniciar.
+Você tinha razão em apontar o repositório de referência: **ele contém o código C++ recompilado do executável principal**, não apenas os wrappers Unity. A árvore pública no commit `5f14ee6a84eb0213372c054c690e6a58513c1a17` contém cerca de 10.620 arquivos `.cpp` do executável principal, o arquivo de tabela `register_functions.cpp` (aprox. 12,7 MB) e 64 lotes Unity de funções mais o lote da tabela. Eu havia tratado a ausência de fontes na nossa árvore como se elas não estivessem disponíveis na referência; essa conclusão estava incompleta.
 
-A geração deve usar a pipeline e os metadados correspondentes à versão USA do projeto upstream. O processo oficial precisa da ISO própria e dos CSVs de análise/relocalização do projeto; a pipeline documentada também requer a toolchain de compilação do recompiler. Depois de gerar as fontes no repositório upstream, copie **todos os arquivos gerados necessários** (incluindo `register_functions.cpp` e os demais `.cpp`/headers referenciados) para `app/src/main/cpp/generated/` neste repositório. Não copie apenas os arquivos Unity ou os módulos SNR2 de outro port: eles dependem de um fork diferente do runtime e de outras bibliotecas. A referência Android consultada não é um substituto plug-and-play para o runtime atualmente fixado aqui. A integração do boot e do backend GS/Vulkan continua pendente mesmo depois que as funções recompiladas forem incluídas.
+A integração agora foi preparada assim:
+
+- O workflow manual busca a referência em um **commit fixo** e usa sparse checkout apenas de `generated/`, `generated_unity/` e `simd_arm64_compat.h`. Isso evita copiar mais de 180 MB de código gerado para o histórico deste repositório.
+- O CMake prioriza esses arquivos reais: compila os wrappers Unity e a tabela de despacho, em vez da tabela vazia do runtime.
+- Se a referência não for baixada, o CMake mantém o caminho local/fallback e não finge que o código do jogo foi ligado.
+- O workflow continua sendo **manual**; não iniciei compilação nem executei Run workflow.
+
+**Limite que ainda precisa ser validado:** essa mudança liga o código recompilado do ELF principal ao runtime que já usamos. A referência também possui milhares de funções dos overlays SNR2, mas eles dependem de um registro de módulos e de alterações no runtime Android daquela referência. Não os incluí cegamente no runtime LasVola, porque isso poderia gerar uma APK que compila mas falha quando o jogo carrega salas/eventos. A integração dos overlays e a validação real de boot/gráficos ainda não podem ser declaradas concluídas até testar a compatibilidade.
+
+Fonte técnica usada: [GodHandAndroidPort](https://github.com/owaissseeee/GodHandAndroidPort/tree/5f14ee6a84eb0213372c054c690e6a58513c1a17/app/src/main/cpp), em particular `generated/`, `generated_unity/` e `host_tools/build_recomp_sources.py`. O projeto de referência declara GPL-3.0; confira os avisos/licenças de terceiros antes de redistribuir uma APK.
 
 ## Execução manual do workflow
 
