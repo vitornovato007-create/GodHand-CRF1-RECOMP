@@ -33,7 +33,7 @@ jobs:
       - name: Set up Android SDK tools
         uses: android-actions/setup-android@v4
         with:
-          packages: ""
+          packages: "platform-tools"
 
       - name: Accept Android SDK licenses
         shell: bash
