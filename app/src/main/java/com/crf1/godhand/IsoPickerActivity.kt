@@ -1,6 +1,5 @@
 package com.crf1.godhand
 
-import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
@@ -12,6 +11,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import java.util.Locale
 
@@ -19,7 +19,7 @@ import java.util.Locale
  * Launcher flow: select a user's ISO first; only then can the native library be loaded.
  * This intentionally reports that the game runtime is not integrated yet.
  */
-class IsoPickerActivity : Activity() {
+class IsoPickerActivity : ComponentActivity() {
     private lateinit var selectedIsoText: TextView
     private lateinit var statusText: TextView
     private var selectedIsoUri: Uri? = null
