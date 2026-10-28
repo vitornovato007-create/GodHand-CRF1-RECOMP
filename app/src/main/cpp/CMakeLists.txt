@@ -85,6 +85,25 @@ foreach(_godhand_source IN LISTS _godhand_runtime_sources)
     endif()
 endforeach()
 
+# The generated game code uses SIMDe, not sse2neon. Add an explicit header
+# selection for those translation units so ps2_runtime.h and
+# ps2_runtime_macros.h do not pull in x86-only NDK intrinsics.
+foreach(_godhand_simde_header IN ITEMS
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/include/ps2_runtime.h"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/include/ps2_runtime_macros.h"
+)
+    file(READ "${_godhand_simde_header}" _godhand_simde_header_text)
+    if(NOT _godhand_simde_header_text MATCHES "GODHAND_USE_SIMDE")
+        string(REPLACE
+            "#elif defined(USE_SSE2NEON)"
+            "#elif defined(GODHAND_USE_SIMDE)\n#include \"simd_arm64_compat.h\"\n#elif defined(USE_SSE2NEON)"
+            _godhand_simde_header_text
+            "${_godhand_simde_header_text}"
+        )
+        file(WRITE "${_godhand_simde_header}" "${_godhand_simde_header_text}")
+    endif()
+endforeach()
+
 # Import only the official PS2 runtime subproject. Adding the upstream top-level
 # project would fail because this Android repo intentionally does not contain
 # the ISO-specific generated C++ files under generated/.
@@ -275,6 +294,14 @@ target_compile_options(godhand_android PRIVATE
 if(GODHAND_REFERENCE_CODE_ACTIVE)
     set_source_files_properties(${GODHAND_GAME_CPP} PROPERTIES
         COMPILE_OPTIONS "-Wno-error;-Wno-unused-variable;-Wno-unused-but-set-variable;-Wno-sign-compare"
+    )
+endif()
+
+# Only the reference-generated C++ translation units use SIMDe. Keep the
+# runtime implementation on its existing SSE2NEON path to avoid mixed aliases.
+if(GODHAND_REFERENCE_CODE_ACTIVE)
+    set_source_files_properties(${GODHAND_GAME_CPP} ${GODHAND_REGISTER_SOURCE}
+        PROPERTIES COMPILE_DEFINITIONS "GODHAND_USE_SIMDE=1"
     )
 endif()
 target_compile_definitions(godhand_android PRIVATE GODHAND_UPSTREAM_RUNTIME_LINKED=1)
