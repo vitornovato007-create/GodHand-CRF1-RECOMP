@@ -312,14 +312,18 @@ target_include_directories(godhand_android PRIVATE
     "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/lib"
 )
 
-# Keep strict warnings as errors, except for unused parameters in upstream headers
-# and no-op virtual methods. Clang/NDK reports these in sse2neon and gs_backend.h.
+# Use section-level code/data emission and discard unreferenced sections at link,
+# matching the reference project's safe dead-code elimination without forcing
+# its CPU-specific Cortex-A78 tuning or ThinLTO onto every ARM64 device.
 target_compile_options(godhand_android PRIVATE
     -Wall
     -Wextra
     -Werror
     -Wno-error=unused-parameter
+    -ffunction-sections
+    -fdata-sections
 )
+target_link_options(godhand_android PRIVATE "-Wl,--gc-sections")
 
 # The reference's generated MIPS-to-C++ bodies can produce benign warnings under
 # newer NDK Clang versions. Keep -Werror for our JNI glue, but don't make generated
