@@ -181,35 +181,62 @@ endif()
 target_include_directories(ps2_runtime PUBLIC "${sse2neon_SOURCE_DIR}")
 target_compile_definitions(ps2_runtime PUBLIC USE_SSE2NEON=1)
 
-# Link ISO-specific game code when the official recompiler output is present.
-# build.py generate writes C++ files to this directory. Keep the empty upstream
-# registration table only as a diagnostic fallback; never report the game as ready
-# unless both generated function sources and their registration table are present.
-set(GODHAND_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated" CACHE PATH
-    "Directory containing C++ sources generated from the user's God Hand USA disc")
-
-file(GLOB GODHAND_GENERATED_CPP CONFIGURE_DEPENDS
-    "${GODHAND_GENERATED_DIR}/*.cpp"
+# Integrate the generated boot-ELF C++ sources already published by the tested
+# Android reference port. Pinning is handled by the manual GitHub Actions workflow.
+# The generated tree is large, so Actions sparse-checks it out instead of duplicating
+# ~185 MB / 10k generated function files in this repository.
+get_filename_component(GODHAND_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../.." ABSOLUTE)
+set(GODHAND_REFERENCE_CPP_DIR
+    "${GODHAND_REPO_ROOT}/external/GodHandAndroidPort/app/src/main/cpp")
+set(GODHAND_REFERENCE_GENERATED_DIR "${GODHAND_REFERENCE_CPP_DIR}/generated")
+file(GLOB GODHAND_REFERENCE_UNITY_CPP CONFIGURE_DEPENDS
+    "${GODHAND_REFERENCE_CPP_DIR}/generated_unity/gh_unity_batch_*.cpp"
 )
-set(GODHAND_GENERATED_REGISTER "${GODHAND_GENERATED_DIR}/register_functions.cpp")
-set(GODHAND_GAME_CPP "")
-foreach(_godhand_generated_source IN LISTS GODHAND_GENERATED_CPP)
-    if(NOT "${_godhand_generated_source}" STREQUAL "${GODHAND_GENERATED_REGISTER}")
-        list(APPEND GODHAND_GAME_CPP "${_godhand_generated_source}")
-    endif()
-endforeach()
 
-if(EXISTS "${GODHAND_GENERATED_REGISTER}" AND GODHAND_GAME_CPP)
-    set(GODHAND_REGISTER_SOURCE "${GODHAND_GENERATED_REGISTER}")
+set(GODHAND_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated" CACHE PATH
+    "Directory containing locally generated God Hand C++ sources")
+set(GODHAND_GAME_CPP "")
+set(GODHAND_REGISTER_SOURCE "")
+set(GODHAND_GAME_CODE_READY OFF)
+set(GODHAND_REFERENCE_CODE_ACTIVE OFF)
+
+if(EXISTS "${GODHAND_REFERENCE_GENERATED_DIR}/register_functions.cpp"
+   AND EXISTS "${GODHAND_REFERENCE_GENERATED_DIR}/ps2_recompiled_functions.h"
+   AND EXISTS "${GODHAND_REFERENCE_CPP_DIR}/simd_arm64_compat.h"
+   AND GODHAND_REFERENCE_UNITY_CPP)
+    # The reference publishes 10k+ generated function bodies and a generated
+    # dispatch table. Unity wrappers preserve the original relative includes and
+    # avoid compiling 10k individual translation units.
+    set(GODHAND_GENERATED_DIR "${GODHAND_REFERENCE_GENERATED_DIR}")
+    set(GODHAND_GAME_CPP ${GODHAND_REFERENCE_UNITY_CPP})
     set(GODHAND_GAME_CODE_READY ON)
-    message(STATUS "God Hand: linking ${GODHAND_GAME_CPP} generated game source file(s)")
+    set(GODHAND_REFERENCE_CODE_ACTIVE ON)
+    list(LENGTH GODHAND_REFERENCE_UNITY_CPP _godhand_unity_count)
+    message(STATUS "God Hand: linking reference-generated boot code via ${_godhand_unity_count} Unity source files")
 else()
-    set(GODHAND_REGISTER_SOURCE
-        "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/runner/register_functions.cpp")
-    set(GODHAND_GAME_CODE_READY OFF)
-    message(WARNING
-        "God Hand game-specific C++ is not ready: expected generated/*.cpp plus "
-        "generated/register_functions.cpp. The APK will contain diagnostics/runtime only.")
+    # Allow locally generated output too, useful for a future source-generation run.
+    file(GLOB GODHAND_GENERATED_CPP CONFIGURE_DEPENDS
+        "${GODHAND_GENERATED_DIR}/*.cpp"
+    )
+    set(GODHAND_GENERATED_REGISTER "${GODHAND_GENERATED_DIR}/register_functions.cpp")
+    foreach(_godhand_generated_source IN LISTS GODHAND_GENERATED_CPP)
+        if(NOT "${_godhand_generated_source}" STREQUAL "${GODHAND_GENERATED_REGISTER}")
+            list(APPEND GODHAND_GAME_CPP "${_godhand_generated_source}")
+        endif()
+    endforeach()
+
+    if(EXISTS "${GODHAND_GENERATED_REGISTER}" AND GODHAND_GAME_CPP)
+        set(GODHAND_REGISTER_SOURCE "${GODHAND_GENERATED_REGISTER}")
+        set(GODHAND_GAME_CODE_READY ON)
+        message(STATUS "God Hand: linking ${GODHAND_GAME_CPP} local generated source file(s)")
+    else()
+        set(GODHAND_REGISTER_SOURCE
+            "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/runner/register_functions.cpp")
+        message(WARNING
+            "God Hand game-specific C++ is not ready: reference sources were not fetched and "
+            "no local generated/*.cpp plus generated/register_functions.cpp were found. "
+            "The APK will contain diagnostics/runtime only.")
+    endif()
 endif()
 
 add_library(godhand_android SHARED
@@ -218,7 +245,7 @@ add_library(godhand_android SHARED
     ${GODHAND_GAME_CPP}
 )
 target_compile_features(godhand_android PRIVATE cxx_std_20)
-target_include_directories(godhand_android PRIVATE "${GODHAND_GENERATED_DIR}")
+target_include_directories(godhand_android PRIVATE "${GODHAND_GENERATED_DIR}" "${GODHAND_REFERENCE_CPP_DIR}")
 
 # Keep strict warnings as errors, except for unused parameters in upstream headers
 # and no-op virtual methods. Clang/NDK reports these in sse2neon and gs_backend.h.
@@ -228,6 +255,15 @@ target_compile_options(godhand_android PRIVATE
     -Werror
     -Wno-error=unused-parameter
 )
+
+# The reference's generated MIPS-to-C++ bodies can produce benign warnings under
+# newer NDK Clang versions. Keep -Werror for our JNI glue, but don't make generated
+# translation units fail solely on compiler-version warning differences.
+if(GODHAND_REFERENCE_CODE_ACTIVE)
+    set_source_files_properties(${GODHAND_GAME_CPP} PROPERTIES
+        COMPILE_OPTIONS "-Wno-error;-Wno-unused-variable;-Wno-unused-but-set-variable;-Wno-sign-compare"
+    )
+endif()
 target_compile_definitions(godhand_android PRIVATE GODHAND_UPSTREAM_RUNTIME_LINKED=1)
 if(GODHAND_GAME_CODE_READY)
     target_compile_definitions(godhand_android PRIVATE GODHAND_GAME_CODE_LINKED=1)
