@@ -54,7 +54,13 @@ endif()
 target_include_directories(ps2_runtime PUBLIC "${sse2neon_SOURCE_DIR}")
 target_compile_definitions(ps2_runtime PUBLIC USE_SSE2NEON=1)
 
-add_library(godhand_android SHARED native-lib.cpp)
+# The official runner normally supplies this table from generated game sources.
+# Until those are available, use the upstream empty table so the runtime core links
+# honestly without pretending that game functions exist.
+add_library(godhand_android SHARED
+    native-lib.cpp
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/runner/register_functions.cpp"
+)
 target_compile_features(godhand_android PRIVATE cxx_std_20)
 target_compile_options(godhand_android PRIVATE -Wall -Wextra -Werror)
 target_compile_definitions(godhand_android PRIVATE GODHAND_UPSTREAM_RUNTIME_LINKED=1)
