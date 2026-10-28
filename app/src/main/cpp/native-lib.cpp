@@ -130,12 +130,16 @@ std::string inspectIso(int fd) {
 
     __android_log_print(ANDROID_LOG_INFO, GH_LOG_TAG,
                         "ISO9660 validada: SYSTEM.CNF e SLUS_215.03 encontrados.");
-#if defined(GODHAND_UPSTREAM_RUNTIME_LINKED)
-    return "ISO_OK: God Hand USA (SLUS-21503) detectado.\n"
-           "RUNTIME_CORE_LINKED: o núcleo PS2 oficial foi incluído na biblioteca ARM64.\n"
-           "GAME_CODE_MISSING: o código C++ recompilado específico do disco ainda não foi gerado "
-           "e ligado; por isso o jogo ainda não pode iniciar. A detecção da ISO não substitui "
-           "a geração feita pelo build.py do projeto oficial.";
+#if defined(GODHAND_UPSTREAM_RUNTIME_LINKED) && defined(GODHAND_GAME_CODE_LINKED)
+    return "ISO_OK: God Hand USA (SLUS-21503) detectado.\\n"
+           "RUNTIME_CORE_LINKED: núcleo PS2 oficial incluído na biblioteca ARM64.\\n"
+           "GAME_CODE_LINKED: fontes C++ recompiladas e tabela de funções encontradas no build. "
+           "A inicialização completa ainda depende da integração do caminho de boot e do backend gráfico.";
+#elif defined(GODHAND_UPSTREAM_RUNTIME_LINKED)
+    return "ISO_OK: God Hand USA (SLUS-21503) detectado.\\n"
+           "RUNTIME_CORE_LINKED: núcleo PS2 oficial incluído na biblioteca ARM64.\\n"
+           "GAME_CODE_MISSING: não foram encontrados fontes C++ recompilados e register_functions.cpp "
+           "em app/src/main/cpp/generated/. O APK ainda não pode executar o jogo.";
 #else
     return "ISO_OK: God Hand USA detectado, mas o núcleo PS2 oficial não foi ligado.";
 #endif
@@ -170,10 +174,15 @@ Java_com_crf1_godhand_RuntimeBridge_nativeRuntimeStatus(JNIEnv* env, jobject /* 
     // would otherwise allow the linker to discard every unused archive object.
     const PS2Runtime::IoPaths& paths = PS2Runtime::getIoPaths();
     (void)paths;
-#if defined(GODHAND_UPSTREAM_RUNTIME_LINKED) && defined(__aarch64__)
+#if defined(GODHAND_UPSTREAM_RUNTIME_LINKED) && defined(GODHAND_GAME_CODE_LINKED) && defined(__aarch64__)
     constexpr const char* status =
         "RUNTIME_CORE_LINKED: núcleo PS2 oficial ligado à biblioteca ARM64. "
-        "O código recompilado específico de God Hand ainda não está presente.";
+        "GAME_CODE_LINKED: fontes geradas e tabela de funções foram incluídas no build; "
+        "a inicialização e o backend gráfico ainda precisam ser validados.";
+#elif defined(GODHAND_UPSTREAM_RUNTIME_LINKED) && defined(__aarch64__)
+    constexpr const char* status =
+        "RUNTIME_CORE_LINKED: núcleo PS2 oficial ligado à biblioteca ARM64. "
+        "GAME_CODE_MISSING: fontes geradas e register_functions.cpp ainda não foram incluídos.";
 #else
     constexpr const char* status =
         "RUNTIME_NOT_INTEGRATED: o núcleo PS2 oficial não está ligado à biblioteca ARM64.";
