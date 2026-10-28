@@ -249,6 +249,7 @@ target_include_directories(godhand_android PRIVATE
     "${GODHAND_GENERATED_DIR}"
     "${GODHAND_REFERENCE_CPP_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/src/lib"
 )
 
 # Keep strict warnings as errors, except for unused parameters in upstream headers
