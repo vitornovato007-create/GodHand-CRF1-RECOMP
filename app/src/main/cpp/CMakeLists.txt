@@ -91,6 +91,7 @@ endforeach()
 foreach(_godhand_simde_header IN ITEMS
     "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/include/ps2_runtime.h"
     "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/include/ps2_runtime_macros.h"
+    "${godhand_upstream_SOURCE_DIR}/runtime/ps2xRuntime/include/runtime/ps2_memory.h"
 )
     file(READ "${_godhand_simde_header}" _godhand_simde_header_text)
     if(NOT _godhand_simde_header_text MATCHES "GODHAND_USE_SIMDE")
