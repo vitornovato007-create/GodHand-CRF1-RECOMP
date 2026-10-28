@@ -202,7 +202,7 @@ set(GODHAND_REFERENCE_CODE_ACTIVE OFF)
 
 if(EXISTS "${GODHAND_REFERENCE_GENERATED_DIR}/register_functions.cpp"
    AND EXISTS "${GODHAND_REFERENCE_GENERATED_DIR}/ps2_recompiled_functions.h"
-   AND EXISTS "${GODHAND_REFERENCE_CPP_DIR}/simd_arm64_compat.h"
+   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/simd_arm64_compat.h"
    AND GODHAND_REFERENCE_UNITY_CPP)
     # The reference publishes 10k+ generated function bodies and a generated
     # dispatch table. Unity wrappers preserve the original relative includes and
