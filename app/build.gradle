@@ -3,6 +3,10 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+dependencies {
+    implementation 'androidx.activity:activity-ktx:1.9.3'
+}
+
 android {
     namespace 'com.crf1.godhand'
     compileSdk 35
