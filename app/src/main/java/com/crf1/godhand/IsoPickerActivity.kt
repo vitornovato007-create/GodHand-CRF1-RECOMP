@@ -212,6 +212,9 @@ class IsoPickerActivity : ComponentActivity() {
     @Volatile
     private var launchInProgress = false
 
+    @Volatile
+    private var lastNativeProgressPercent = -1
+
     private fun onPlayClicked() {
         DiagnosticLog.log("PLAY_CLICK", "User requested game boot")
         val uri = selectedIsoUri
