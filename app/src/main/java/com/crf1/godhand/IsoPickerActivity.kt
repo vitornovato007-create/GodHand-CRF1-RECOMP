@@ -302,6 +302,7 @@ class IsoPickerActivity : ComponentActivity() {
             updateStatus("$percent% — $stage\\n$message")
         }
     }
+
     private fun queryDisplayName(uri: Uri): String {
         contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
