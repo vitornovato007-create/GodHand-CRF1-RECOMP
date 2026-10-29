@@ -61,6 +61,22 @@ string(REPLACE "${_godhand_cache_anchor}" "${_godhand_cache_replacement}"
     _godhand_main_source "${_godhand_main_source}")
 file(WRITE "${_godhand_main_cpp}" "${_godhand_main_source}")
 
+# The reference was tuned for a newer Cortex-A78 phone. Keep the build usable on
+# older ARM64 devices such as Exynos 9820 (Cortex-A75/A55 + Samsung M4): retain
+# the ARMv8.2 baseline needed by the port but do not emit optional dotprod, FP16
+# or RCpc instructions unless the device actually guarantees those extensions.
+set(_godhand_reference_cmake "${GODHAND_REFERENCE_CPP_DIR}/CMakeLists.txt")
+file(READ "${_godhand_reference_cmake}" _godhand_reference_cmake_source)
+string(FIND "${_godhand_reference_cmake_source}" "-march=armv8.2-a+dotprod+fp16+rcpc" _godhand_arch_flag_match)
+if(_godhand_arch_flag_match EQUAL -1)
+    message(FATAL_ERROR "Reference CPU tuning flag changed; review ARM64 compatibility before building.")
+endif()
+string(REPLACE "-march=armv8.2-a+dotprod+fp16+rcpc" "-march=armv8.2-a"
+    _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
+string(REPLACE "-mtune=cortex-a78" "-mtune=generic"
+    _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
+file(WRITE "${_godhand_reference_cmake}" "${_godhand_reference_cmake_source}")
+
 # Reuse the tested Android port's full build graph: PCSX2 GS graphics backend,
 # Android surface bridge, IOP, audio, game host code, 10k+ generated EE functions,
 # and 81 generated SNR2 overlays. Do not mix it with a second PS2Runtime build.
