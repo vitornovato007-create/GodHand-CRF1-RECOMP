@@ -80,7 +80,7 @@ jobs:
             fi
           done
 
-      - name: Fetch pinned reference-generated God Hand C++ sources
+      - name: Fetch pinned Android runtime, graphics and game sources
         shell: bash
         run: |
           set -euo pipefail
