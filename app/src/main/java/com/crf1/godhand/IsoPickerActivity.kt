@@ -300,7 +300,7 @@ class IsoPickerActivity : ComponentActivity() {
         lastNativeProgressPercent = percent
         DiagnosticLog.log("NATIVE_EXTRACT", "$percent% [$stage] $message")
         runOnUiThread {
-            updateStatus("$percent% — $stage\\n$message")
+            updateStatus("$percent% — $stage\n$message")
         }
     }
 
