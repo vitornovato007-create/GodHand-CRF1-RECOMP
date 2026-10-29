@@ -94,6 +94,15 @@ if(NOT TARGET godhand_android)
     message(FATAL_ERROR "Reference CMake did not create the godhand_android JNI library.")
 endif()
 
+# Oboe is built with -Werror upstream. This pinned revision has unused
+# sharedParentStream parameters in AudioStreamAAudio.cpp; keep the warning but
+# do not let that third-party warning abort the Android build.
+if(TARGET oboe)
+    target_compile_options(oboe PRIVATE
+        -Wno-error=unused-parameter
+    )
+endif()
+
 # Keep the existing project's ISO diagnostics and status JNI methods, but remove
 # its obsolete main() link stub: the reference Android entry point already owns
 # the one required by raylib. Generate a build-tree copy so the source file in
