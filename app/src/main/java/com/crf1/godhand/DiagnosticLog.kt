@@ -7,13 +7,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * Persistent diagnostics for launcher failures.
- * Logs are stored in the app-private files directory and can be shared from the UI.
- */
 object DiagnosticLog {
     private const val TAG = "GodHandCRF1"
     private const val FILE_NAME = "godhand-diagnostics.log"
+    private const val NATIVE_FILE_NAME = "godhand-native-crash.log"
     private val lock = Any()
     @Volatile private var appContext: Context? = null
 
@@ -22,9 +19,15 @@ object DiagnosticLog {
         log("LOG", "Diagnostic logger initialized")
     }
 
+    fun nativeLogPath(): String {
+        val context = appContext
+            ?: throw IllegalStateException("DiagnosticLog must be initialized before loading the native runtime")
+        return File(context.filesDir, NATIVE_FILE_NAME).absolutePath
+    }
+
     fun log(stage: String, message: String) {
         val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US).format(Date())
-        val line = "$timestamp [${Thread.currentThread().name}] [$stage] $message"
+        val line = "\${timestamp} [\${Thread.currentThread().name}] [\${stage}] \${message}"
         Log.i(TAG, line)
         synchronized(lock) {
             try {
@@ -37,7 +40,7 @@ object DiagnosticLog {
     }
 
     fun exception(stage: String, error: Throwable) {
-        log(stage, "${error.javaClass.name}: ${error.message ?: "(sem mensagem)"}")
+        log(stage, "\${error.javaClass.name}: \${error.message ?: "(sem mensagem)"}")
         val stack = Log.getStackTraceString(error)
         synchronized(lock) {
             try {
@@ -53,10 +56,17 @@ object DiagnosticLog {
     fun readAll(): String {
         val context = appContext ?: return "Logger ainda não inicializado."
         return try {
-            val file = File(context.filesDir, FILE_NAME)
-            if (file.exists()) file.readText(Charsets.UTF_8) else "Nenhum log gravado ainda."
+            val javaFile = File(context.filesDir, FILE_NAME)
+            val nativeFile = File(context.filesDir, NATIVE_FILE_NAME)
+            buildString {
+                appendLine("========== GODHAND JAVA/KOTLIN DIAGNOSTICS ==========")
+                appendLine(if (javaFile.exists()) javaFile.readText(Charsets.UTF_8) else "Nenhum evento Java/Kotlin gravado.")
+                appendLine()
+                appendLine("========== GODHAND NATIVE CRASH DIAGNOSTICS ==========")
+                appendLine(if (nativeFile.exists()) nativeFile.readText(Charsets.UTF_8) else "Nenhum registro nativo gravado.")
+            }
         } catch (error: Exception) {
-            "Falha ao ler log: ${error.javaClass.simpleName}: ${error.message}"
+            "Falha ao ler logs: \${error.javaClass.simpleName}: \${error.message}"
         }
     }
 
@@ -65,18 +75,19 @@ object DiagnosticLog {
             try {
                 val context = appContext ?: return
                 File(context.filesDir, FILE_NAME).writeText("", Charsets.UTF_8)
+                File(context.filesDir, NATIVE_FILE_NAME).writeText("", Charsets.UTF_8)
             } catch (error: Exception) {
-                Log.e(TAG, "Could not clear diagnostic log", error)
+                Log.e(TAG, "Could not clear diagnostic logs", error)
             }
         }
-        log("LOG", "Log cleared by user")
+        log("LOG", "Java/Kotlin and native logs cleared by user")
     }
 
     fun installCrashHandler() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             exception("UNCAUGHT_CRASH", error)
-            log("UNCAUGHT_CRASH", "Thread terminated: ${thread.name}")
+            log("UNCAUGHT_CRASH", "Thread terminated: \${thread.name}")
             if (previous != null) {
                 previous.uncaughtException(thread, error)
             } else {
