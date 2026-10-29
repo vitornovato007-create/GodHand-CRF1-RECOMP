@@ -29,7 +29,7 @@ android {
                 // Restrict the native build to the JNI library used by this app.
                 // Keep this inside defaultConfig: AGP reads the requested native
                 // targets from the variant's externalNativeBuild configuration.
-                targets 'godhand_android'
+                targets += ['godhand_android']
             }
         }
     }
