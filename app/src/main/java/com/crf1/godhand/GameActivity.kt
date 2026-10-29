@@ -26,6 +26,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         DiagnosticLog.log("GAME_ACTIVITY", "Creating native rendering surface")
 
         bridge = RuntimeBridge()
+        bridge.nativeWriteDiagnostic("[BOOT] GameActivity created; preparing Android SurfaceView")
         gameSurface = SurfaceView(this).apply {
             holder.addCallback(this@GameActivity)
             setBackgroundColor(android.graphics.Color.BLACK)
@@ -43,19 +44,20 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         DiagnosticLog.log("GS_SURFACE", "Surface created; waiting for valid dimensions")
+        bridge.nativeWriteDiagnostic("[SURFACE] Android Surface created; waiting for dimensions")
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
         if (width <= 0 || height <= 0 || !holder.surface.isValid) {
-            DiagnosticLog.log("GS_SURFACE", "Ignoring invalid surface dimensions ${width}x${height}")
+            DiagnosticLog.log("GS_SURFACE", "Ignoring invalid surface dimensions \${width}x\${height}")
+            bridge.nativeWriteDiagnostic("[SURFACE] Ignored invalid surface dimensions \${width}x\${height}")
             return
         }
 
         try {
-            DiagnosticLog.log(
-                "GAME_BOOT",
-                "Attaching Android surface ${width}x${height}; renderer=Vulkan, scale=0.75x, aspect=fullscreen, fps=30"
-            )
+            val config = "size=\${width}x\${height}; renderer=Vulkan; scale=0.75x; aspect=fullscreen; fps=30"
+            DiagnosticLog.log("GAME_BOOT", "Attaching Android surface; $config")
+            bridge.nativeWriteDiagnostic("[BOOT] Calling upstream onSurfaceCreated; $config")
             // Renderer index 0 = Vulkan; resolution scale index 1 = 0.75x;
             // aspect index 2 = device fullscreen; fps index 1 = 30 FPS.
             bridge.onSurfaceCreated(
@@ -69,8 +71,19 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 0
             )
             nativeSurfaceAttached = true
+            bridge.nativeWriteDiagnostic(
+                "[BOOT] JNI onSurfaceCreated returned; upstream runtime boot thread should now be running"
+            )
+            DiagnosticLog.log("GAME_BOOT", "Native surface callback returned; runtime boot thread launched")
         } catch (error: Throwable) {
             DiagnosticLog.exception("GAME_BOOT_FAILED", error)
+            try {
+                bridge.nativeWriteDiagnostic(
+                    "[BOOT_EXCEPTION] \${error.javaClass.name}: \${error.message ?: "(no message)"}"
+                )
+            } catch (_: Throwable) {
+                // Preserve the original surface initialization exception.
+            }
             runOnUiThread {
                 android.app.AlertDialog.Builder(this)
                     .setTitle("Falha ao iniciar o jogo")
@@ -83,9 +96,15 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         DiagnosticLog.log("GS_SURFACE", "Android rendering surface destroyed")
+        try {
+            bridge.nativeWriteDiagnostic("[SURFACE] Android rendering surface destroyed")
+        } catch (_: Throwable) {
+            // The process may already be shutting down after a native failure.
+        }
         if (nativeSurfaceAttached) {
             try {
                 bridge.onSurfaceDestroyed()
+                bridge.nativeWriteDiagnostic("[SURFACE] Native surface detach callback returned")
             } catch (error: Throwable) {
                 DiagnosticLog.exception("GS_SURFACE_DESTROY_FAILED", error)
             }
