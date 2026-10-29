@@ -293,12 +293,15 @@ class IsoPickerActivity : ComponentActivity() {
     /** Called from JNI while the native ISO extractor reports progress. */
     @Suppress("unused")
     fun onNativeProgress(percent: Int, stage: String, message: String) {
+        // The native extractor can report once per ISO file; update only when
+        // the percentage changes so large ISOs do not flood the UI queue/log.
+        if (percent == lastNativeProgressPercent) return
+        lastNativeProgressPercent = percent
         DiagnosticLog.log("NATIVE_EXTRACT", "$percent% [$stage] $message")
         runOnUiThread {
-            updateStatus("$percent% — $stage\n$message")
+            updateStatus("$percent% — $stage\\n$message")
         }
     }
-
     private fun queryDisplayName(uri: Uri): String {
         contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) {
