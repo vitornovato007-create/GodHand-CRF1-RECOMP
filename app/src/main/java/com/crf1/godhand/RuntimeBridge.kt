@@ -6,14 +6,23 @@ import android.view.Surface
  * JNI bridge to the integrated God Hand Android runtime.
  *
  * The native library contains the EE recompilation, SNR2 module registry,
- * Android surface bridge and PCSX2 GS graphics backend.
+ * Android surface bridge, PCSX2 GS graphics backend and fatal-signal logger.
  */
 class RuntimeBridge {
     init {
         DiagnosticLog.log("NATIVE_LOAD", "Loading integrated God Hand ARM64 runtime")
         System.loadLibrary("godhand_android")
         DiagnosticLog.log("NATIVE_LOAD", "Integrated JNI library loaded")
+
+        nativeConfigureCrashLog(DiagnosticLog.nativeLogPath())
+        nativeWriteDiagnostic("[NATIVE_DIAGNOSTICS] RuntimeBridge initialized; native crash logger configured")
     }
+
+    /** Configure the persistent file used by the native fatal-signal handler. */
+    external fun nativeConfigureCrashLog(path: String)
+
+    /** Append a diagnostic checkpoint to the native log. */
+    external fun nativeWriteDiagnostic(message: String)
 
     external fun nativeRuntimeStatus(): String
 
