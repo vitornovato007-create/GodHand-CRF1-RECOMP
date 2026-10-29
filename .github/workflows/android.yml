@@ -96,11 +96,12 @@ jobs:
           # The reference repository pins SIMDe as a gitlink but does not publish
           # a .gitmodules file. Fetch that exact gitlink commit explicitly.
           mkdir -p external/GodHandAndroidPort/app/src/main/cpp/thirdparty
+          rm -rf external/GodHandAndroidPort/app/src/main/cpp/thirdparty/simde
           git clone --filter=blob:none --no-checkout https://github.com/simd-everywhere/simde.git external/GodHandAndroidPort/app/src/main/cpp/thirdparty/simde
           git -C external/GodHandAndroidPort/app/src/main/cpp/thirdparty/simde checkout --detach 2e5224981e9123b8fe89a9833a978556d636a565
 
           # Oboe is also a pinned gitlink in the reference repository.
-          rmdir external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe 2>/dev/null || true
+          rm -rf external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe
           git clone --filter=blob:none --no-checkout https://github.com/google/oboe.git external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe
           git -C external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe checkout --detach 4468344c8fdfdd7df068d5abefe2d8615fd6b431
 
