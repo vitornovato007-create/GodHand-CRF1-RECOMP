@@ -87,9 +87,10 @@ jobs:
           mkdir -p external
           git clone --filter=blob:none --no-checkout https://github.com/owaissseeee/GodHandAndroidPort.git external/GodHandAndroidPort
           git -C external/GodHandAndroidPort sparse-checkout init --cone
-          git -C external/GodHandAndroidPort sparse-checkout set \
-            app/src/main/cpp/generated \
-            app/src/main/cpp/generated_unity
+          # The Android renderer, runtime, IOP, audio and SNR2 overlays live beside
+          # the generated EE batches. Check out the complete C++ subtree so CMake
+          # builds one coherent reference port rather than a runtime-only stub.
+          git -C external/GodHandAndroidPort sparse-checkout set app/src/main/cpp
           git -C external/GodHandAndroidPort checkout --detach 5f14ee6a84eb0213372c054c690e6a58513c1a17
 
           # The reference repository pins SIMDe as a gitlink but does not publish
@@ -97,10 +98,22 @@ jobs:
           mkdir -p external/GodHandAndroidPort/app/src/main/cpp/thirdparty
           git clone --filter=blob:none --no-checkout https://github.com/simd-everywhere/simde.git external/GodHandAndroidPort/app/src/main/cpp/thirdparty/simde
           git -C external/GodHandAndroidPort/app/src/main/cpp/thirdparty/simde checkout --detach 2e5224981e9123b8fe89a9833a978556d636a565
+
+          # Oboe is also a pinned gitlink in the reference repository.
+          rmdir external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe 2>/dev/null || true
+          git clone --filter=blob:none --no-checkout https://github.com/google/oboe.git external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe
+          git -C external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe checkout --detach 4468344c8fdfdd7df068d5abefe2d8615fd6b431
+
+          test -s external/GodHandAndroidPort/app/src/main/cpp/CMakeLists.txt
+          test -s external/GodHandAndroidPort/app/src/main/cpp/jni_bridge.cpp
+          test -s external/GodHandAndroidPort/app/src/main/cpp/src/main.cpp
           test -s external/GodHandAndroidPort/app/src/main/cpp/generated/register_functions.cpp
+          test -s external/GodHandAndroidPort/app/src/main/cpp/thirdparty/oboe/CMakeLists.txt
           test -s external/GodHandAndroidPort/app/src/main/cpp/generated/ps2_recompiled_functions.h
           test "$(find external/GodHandAndroidPort/app/src/main/cpp/generated_unity -maxdepth 1 -name 'gh_unity_batch_*.cpp' | wc -l)" -ge 60
-          echo "Reference-generated God Hand boot sources are present."
+          test "$(find external/GodHandAndroidPort/app/src/main/cpp/generated_modules_unity -maxdepth 1 -name 'gh_mod_unity_*.cpp' | wc -l)" -ge 80
+          test -s external/GodHandAndroidPort/app/src/main/cpp/thirdparty/pcsx2-gs-android/CMakeLists.txt
+          echo "Reference boot, graphics, audio, generated EE and SNR2 sources are present."
 
       - name: Build debug APK with bounded parallelism and RAM monitoring
         shell: bash
