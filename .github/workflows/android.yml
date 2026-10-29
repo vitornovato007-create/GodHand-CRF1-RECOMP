@@ -164,6 +164,20 @@ jobs:
           echo "Biblioteca ARM64 encontrada: lib/arm64-v8a/libgodhand_android.so"
           file build/apk-check/lib/arm64-v8a/libgodhand_android.so
 
+          SO="build/apk-check/lib/arm64-v8a/libgodhand_android.so"
+          for symbol in \
+            Java_com_crf1_godhand_RuntimeBridge_nativeRuntimeStatus \
+            Java_com_crf1_godhand_RuntimeBridge_nativeInspectIso \
+            Java_com_crf1_godhand_RuntimeBridge_extractAndCacheIsoFromFd \
+            Java_com_crf1_godhand_RuntimeBridge_onSurfaceCreated \
+            Java_com_crf1_godhand_RuntimeBridge_onSurfaceDestroyed; do
+            if ! readelf --wide --symbols "$SO" | grep -F "$symbol" >/dev/null; then
+              echo "Required JNI integration symbol is missing: $symbol" >&2
+              exit 1
+            fi
+          done
+          echo "Required ISO extraction, runtime status and Android surface JNI symbols are exported."
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
