@@ -254,21 +254,57 @@ class IsoPickerActivity : ComponentActivity() {
                     throw IllegalStateException("Não foi possível criar o diretório privado: ${cacheDir.absolutePath}")
                 }
 
-                val descriptor = contentResolver.openFileDescriptor(uri, "r")
-                    ?: throw IllegalStateException("O Android não conseguiu abrir a ISO para extração.")
-                val isoSize = descriptor.statSize
-                if (isoSize > 0 && isoSize < 1_048_576) {
-                    descriptor.close()
-                    throw IllegalArgumentException("A imagem tem menos de 1 MiB ($isoSize bytes).")
-                }
-                val ownedFd = descriptor.detachFd()
-                DiagnosticLog.log("ISO_EXTRACT", "Starting native extraction to ${cacheDir.absolutePath}; ISO size=$isoSize bytes")
-                val extracted = bridge.extractAndCacheIsoFromFd(ownedFd, cacheDir.absolutePath, this)
-                if (!extracted) {
-                    throw IllegalStateException("O extrator nativo não conseguiu concluir a extração da ISO. Consulte o log.")
+                val cachePrefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+                val cacheUri = cachePrefs.getString(KEY_CACHE_URI, null)
+                val requiredCacheFiles = listOf(
+                    "SYSTEM.CNF",
+                    "SLUS_215.03",
+                    "_DATA.AFS",
+                    "GODHAND.FST",
+                    "MODULES/IRX.IMS",
+                    "MODULES/IOPRP310.IMG",
+                    "MODULES/SDRDRV.IRX"
+                ).map { File(cacheDir, it) }
+                val cacheReady = cacheUri == uri.toString() &&
+                    requiredCacheFiles.all { it.isFile && it.length() > 0L }
+
+                if (cacheReady) {
+                    DiagnosticLog.log("ISO_CACHE", "Reusing complete cache for the selected ISO")
+                    runOnUiThread { updateStatus("Arquivos do jogo já extraídos. Preparando o runtime...") }
+                } else {
+                    // When switching ISO, remove only extracted game data. Preserve
+                    // shader cache and memory-card data stored in other cache entries.
+                    if (cacheUri != uri.toString()) {
+                        listOf("SYSTEM.CNF", "SLUS_215.03", "_DATA.AFS", "GODHAND.FST", "0FLISTDV.DIR")
+                            .forEach { File(cacheDir, it).delete() }
+                        File(cacheDir, "MODULES").deleteRecursively()
+                    }
+
+                    val descriptor = contentResolver.openFileDescriptor(uri, "r")
+                        ?: throw IllegalStateException("O Android não conseguiu abrir a ISO para extração.")
+                    val isoSize = descriptor.statSize
+                    if (isoSize > 0 && isoSize < 1_048_576) {
+                        descriptor.close()
+                        throw IllegalArgumentException("A imagem tem menos de 1 MiB ($isoSize bytes).")
+                    }
+                    val ownedFd = descriptor.detachFd()
+                    DiagnosticLog.log("ISO_EXTRACT", "Starting native extraction to ${cacheDir.absolutePath}; ISO size=$isoSize bytes")
+                    val extracted = bridge.extractAndCacheIsoFromFd(ownedFd, cacheDir.absolutePath, this)
+                    if (!extracted) {
+                        throw IllegalStateException("O extrator nativo não conseguiu concluir a extração da ISO. Consulte o log.")
+                    }
+
+                    val missingFiles = requiredCacheFiles.filterNot { it.isFile && it.length() > 0L }
+                    if (missingFiles.isNotEmpty()) {
+                        throw IllegalStateException(
+                            "Extração incompleta. Arquivos ausentes ou vazios: " +
+                                missingFiles.joinToString { it.relativeTo(cacheDir).path }
+                        )
+                    }
+                    cachePrefs.edit().putString(KEY_CACHE_URI, uri.toString()).apply()
+                    DiagnosticLog.log("ISO_EXTRACT", "Extraction completed and required game files verified")
                 }
 
-                DiagnosticLog.log("ISO_EXTRACT", "Extraction completed")
                 runOnUiThread { updateStatus("Arquivos extraídos. Preparando o índice de dados...") }
                 bridge.buildAfsFastIndex(cacheDir.absolutePath)
                 DiagnosticLog.log("AFS_INDEX", "AFS validation/index stage completed")
@@ -362,5 +398,6 @@ class IsoPickerActivity : ComponentActivity() {
         private const val PREFS = "godhand_launcher"
         private const val KEY_URI = "selected_iso_uri"
         private const val KEY_NAME = "selected_iso_name"
+        private const val KEY_CACHE_URI = "cached_iso_uri"
     }
 }
