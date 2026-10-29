@@ -1,55 +1,51 @@
 # GodHand-CRF1-RECOMP
 
-Projeto experimental de port do [God Hand Recompiled oficial](https://github.com/LasVola/godhand-recomp) para Android ARM64.
+Projeto experimental de port do God Hand (PS2) para Android ARM64, baseado no código público do [GodHandAndroidPort](https://github.com/owaissseeee/GodHandAndroidPort) e na recompilação estática de [LasVola/godhand-recomp](https://github.com/LasVola/godhand-recomp).
 
 ## Estado atual
 
-O projeto avançou além do launcher de diagnóstico:
+A integração do caminho Android foi conectada no código, mas **a nova integração ainda precisa passar por uma compilação manual e por teste em dispositivo**. Não considere o jogo funcional até confirmar que o runtime inicializa e apresenta a imagem do jogo.
 
-- Launcher Android em Kotlin com seleção de ISO via Storage Access Framework e permissão persistente de leitura.
-- Log persistente em armazenamento privado, Logcat e exportação do diagnóstico.
-- Biblioteca JNI libgodhand_android.so ligada ao núcleo ps2_runtime do repositório oficial.
-- Build Android usa o NDK e a camada SSE2NEON para adaptar intrínsecos SSE do runtime à arquitetura ARM64.
-- Ao tocar em **Jogar**, o código nativo lê a ISO9660 pelo descritor de arquivo, verifica o descritor primário, o diretório raiz, SYSTEM.CNF e SLUS_215.03, e informa se o disco parece ser a versão esperada.
-- O runtime oficial é fixado no commit 14e956a1274332440273845fbab2c1f1e30c4a5a para builds reproduzíveis.
+O que foi conectado nesta etapa:
 
-**Ainda não é uma versão jogável.** O núcleo genérico PS2 está ligado, mas ainda falta gerar e ligar ao APK o código C++ específico de God Hand, integrar o caminho de boot e validar o backend gráfico e os recursos extraídos necessários. O projeto oficial é uma recompilação estática: escolher uma ISO no Android não gera automaticamente esse código e não inicia o jogo. O estado atual não deve ser confundido com a integração completa ou com um boot bem-sucedido.
+- Launcher Kotlin com seleção da ISO pelo Storage Access Framework e permissão persistente de leitura.
+- Verificação nativa inicial da ISO9660 e dos arquivos `SYSTEM.CNF` e `SLUS_215.03`.
+- Extração nativa dos arquivos da ISO para o armazenamento privado do aplicativo (`files/godhand_cache`), com progresso no launcher e log exportável.
+- Atividade Android com `SurfaceView` para fornecer uma superfície nativa ao backend gráfico.
+- CMake configurado para integrar a árvore Android completa da referência: runtime EE/IOP, áudio, PCSX2 GS, bridge JNI, código recompilado do ELF principal e os 81 overlays SNR2.
+- Prefixos JNI e caminho de cache adaptados ao package `com.crf1.godhand`.
+- Flags de compilação ajustadas para evitar exigir opcionalmente dot-product, FP16 e RCpc, mantendo a base ARMv8.2 para ampliar a compatibilidade com dispositivos ARM64 mais antigos.
 
-## Referências técnicas
+## Dependências e fontes fixadas
 
-- Projeto oficial God Hand Recompiled: https://github.com/LasVola/godhand-recomp
-- CMake principal oficial: https://github.com/LasVola/godhand-recomp/blob/14e956a1274332440273845fbab2c1f1e30c4a5a/CMakeLists.txt
-- Runtime PS2 oficial: https://github.com/LasVola/godhand-recomp/tree/14e956a1274332440273845fbab2c1f1e30c4a5a/runtime
-- CMake do runtime oficial: https://github.com/LasVola/godhand-recomp/blob/14e956a1274332440273845fbab2c1f1e30c4a5a/runtime/ps2xRuntime/CMakeLists.txt
-- SSE2NEON: https://github.com/DLTcollab/sse2neon
+O workflow usa estes commits para manter o build reproduzível:
 
-O CMake Android importa somente o subdiretório runtime/ do projeto oficial, e não o projeto desktop completo, pois este exige arquivos C++ gerados específicos do jogo que ainda não estão presentes neste repositório.
+- GodHandAndroidPort: `5f14ee6a84eb0213372c054c690e6a58513c1a17`
+- SIMDe: `2e5224981e9123b8fe89a9833a978556d636a565`
+- Oboe: `4468344c8fdfdd7df068d5abefe2d8615fd6b431`
 
-## Integração do código recompilado
+O workflow faz sparse checkout do subdiretório C++ inteiro da referência, sem copiar esses arquivos gerados para o histórico deste repositório. O CMake integra a árvore da referência como um único conjunto para evitar misturar a implementação gráfica/IOP dela com uma segunda cópia do runtime.
 
-Você tinha razão em apontar o repositório de referência: **ele contém o código C++ recompilado do executável principal**, não apenas os wrappers Unity. A árvore pública no commit `5f14ee6a84eb0213372c054c690e6a58513c1a17` contém cerca de 10.620 arquivos `.cpp` do executável principal, o arquivo de tabela `register_functions.cpp` (aprox. 12,7 MB) e 64 lotes Unity de funções mais o lote da tabela. Eu havia tratado a ausência de fontes na nossa árvore como se elas não estivessem disponíveis na referência; essa conclusão estava incompleta.
+## Como testar
 
-A integração agora foi preparada assim:
+1. Abra **Actions → Android ARM64 → Run workflow** e inicie o workflow manualmente.
+2. Baixe o artefato `GodHand-CRF1-Android-ARM64-debug` e instale o APK em um dispositivo Android ARM64.
+3. Selecione sua própria ISO de God Hand USA (serial SLUS-21503).
+4. Toque em **Jogar**. O aplicativo deve validar a ISO, extrair os arquivos e abrir a atividade gráfica nativa.
+5. Se aparecer tela preta, fechamento inesperado ou mensagem de erro, exporte o log do launcher. As mensagens nativas adicionais podem ser consultadas no Logcat com a tag `GodHandRecomp`.
 
-- O workflow manual busca a referência em um **commit fixo** e usa sparse checkout apenas de `generated/`, `generated_unity/` e `simd_arm64_compat.h`. Isso evita copiar mais de 180 MB de código gerado para o histórico deste repositório.
-- O CMake prioriza esses arquivos reais: compila os wrappers Unity e a tabela de despacho, em vez da tabela vazia do runtime.
-- Se a referência não for baixada, o CMake mantém o caminho local/fallback e não finge que o código do jogo foi ligado.
-- O workflow continua sendo **manual**; não iniciei compilação nem executei Run workflow.
+A extração copia os dados necessários para o armazenamento privado. Reserve **mais de 1,6 GB de espaço livre**, além do espaço ocupado pela ISO, para que a extração não falhe por falta de armazenamento.
 
-**Limite que ainda precisa ser validado:** essa mudança liga o código recompilado do ELF principal ao runtime que já usamos. A referência também possui milhares de funções dos overlays SNR2, mas eles dependem de um registro de módulos e de alterações no runtime Android daquela referência. Não os incluí cegamente no runtime LasVola, porque isso poderia gerar uma APK que compila mas falha quando o jogo carrega salas/eventos. A integração dos overlays e a validação real de boot/gráficos ainda não podem ser declaradas concluídas até testar a compatibilidade.
+## Configuração gráfica inicial
 
-Fonte técnica usada: [GodHandAndroidPort](https://github.com/owaissseeee/GodHandAndroidPort/tree/5f14ee6a84eb0213372c054c690e6a58513c1a17/app/src/main/cpp), em particular `generated/`, `generated_unity/` e `host_tools/build_recomp_sources.py`. O projeto de referência declara GPL-3.0; confira os avisos/licenças de terceiros antes de redistribuir uma APK.
+A atividade de jogo inicia com Vulkan, escala interna de 0,75x, tela cheia e limite de 30 FPS para privilegiar compatibilidade no primeiro teste. Essas opções são valores iniciais fixos da integração e ainda não foram validadas no dispositivo do usuário. Uma tela preta não prova, sozinha, que a extração falhou; consulte os logs.
 
-## Execução manual do workflow
+## Workflow e validação
 
-O workflow `.github/workflows/android.yml` está configurado **somente para `workflow_dispatch`**. Pushes e commits não devem iniciar compilação automaticamente. Quando quiser testar, abra **Actions → Android ARM64 → Run workflow** e inicie a execução manualmente.
+O arquivo `.github/workflows/android.yml` é **somente manual** (`workflow_dispatch`). Commits e pushes não devem iniciar builds automaticamente. Nenhum workflow deve ser iniciado ou cancelado pelo assistente.
 
-## ISO e direitos autorais
+Uma compilação bem-sucedida confirma que o código nativo foi compilado e empacotado; não prova que o boot, o renderizador, o áudio, os overlays ou a jogabilidade funcionem. Essas etapas dependem de teste real no dispositivo.
 
-Use somente sua própria cópia legítima da versão USA exigida pelo projeto upstream (God Hand, serial SLUS-21503). Este repositório não inclui ISO, ELF, código gerado, overlays, músicas ou outros dados do jogo.
+## ISO e licenças
 
-O núcleo de runtime upstream é licenciado sob GPL-3.0. Consulte a licença e os avisos de terceiros antes de distribuir builds modificadas.
-
-## Build
-
-Quando disparado manualmente, o workflow Android ARM64 compila o APK debug com Java, Android SDK, NDK e CMake, verifica a biblioteca ARM64 e publica o artefato GodHand-CRF1-Android-ARM64-debug. A compilação confirma apenas que o código incluído foi compilado; não prova que o jogo já inicializa.
+Este repositório não distribui ISO, ELF, arquivos de jogo ou outros dados protegidos. Use somente sua própria cópia legítima da versão USA exigida pelo projeto. O código de recompilação/runtime é GPL-3.0 e as dependências de terceiros têm suas próprias licenças; consulte os avisos correspondentes antes de redistribuir builds modificadas.
