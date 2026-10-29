@@ -13,11 +13,12 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import java.io.File
 import java.util.Locale
 
 /**
- * Launcher flow: select a user's ISO first; only then can the native library be loaded.
- * This intentionally reports that the game runtime is not integrated yet.
+ * Selects a user's ISO, extracts the game data into app-private storage, then
+ * opens the Android surface that hosts the native God Hand runtime.
  */
 class IsoPickerActivity : ComponentActivity() {
     private lateinit var selectedIsoText: TextView
@@ -122,7 +123,7 @@ class IsoPickerActivity : ComponentActivity() {
         content.addView(statusText, matchWrap())
 
         val note = TextView(this).apply {
-            text = "\nO núcleo do runtime PS2 oficial está sendo integrado. A execução do jogo só será possível quando o código recompilado específico da versão USA da ISO também estiver gerado e ligado ao APK."
+            text = "\nAo tocar em Jogar, o aplicativo valida a ISO, extrai os arquivos necessários para o armazenamento privado e abre o runtime nativo com backend gráfico Android."
             textSize = 12f
             setPadding(0, dp(18), 0, 0)
         }
@@ -208,44 +209,90 @@ class IsoPickerActivity : ComponentActivity() {
         }
     }
 
+    @Volatile
+    private var launchInProgress = false
+
     private fun onPlayClicked() {
-        DiagnosticLog.log("PLAY_CLICK", "User tapped Play")
+        DiagnosticLog.log("PLAY_CLICK", "User requested game boot")
         val uri = selectedIsoUri
         if (uri == null) {
             DiagnosticLog.log("PLAY_ABORTED", "No ISO selected")
             showError("Primeiro selecione a ISO do jogo.", null)
             return
         }
+        if (launchInProgress) {
+            updateStatus("A preparação da ISO já está em andamento.")
+            return
+        }
 
-        try {
-            DiagnosticLog.log("PLAY_VALIDATE", "Rechecking selected ISO: ${selectedIsoName ?: uri}")
-            val bridge = RuntimeBridge()
-            val inspectionResult = contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
-                val size = descriptor.statSize
-                DiagnosticLog.log("PLAY_VALIDATE", "ISO descriptor opened; size=$size bytes; fd=${descriptor.fd}")
-                if (size > 0 && size < 1_048_576) {
-                    throw IllegalArgumentException("A imagem tem menos de 1 MiB ($size bytes).")
+        launchInProgress = true
+        updateStatus("Validando a ISO e preparando os arquivos do jogo...")
+        Thread({
+            try {
+                DiagnosticLog.log("PLAY_VALIDATE", "Rechecking selected ISO: ${selectedIsoName ?: uri}")
+                val bridge = RuntimeBridge()
+                val inspectionResult = contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
+                    val size = descriptor.statSize
+                    DiagnosticLog.log("PLAY_VALIDATE", "ISO descriptor opened; size=$size bytes")
+                    if (size > 0 && size < 1_048_576) {
+                        throw IllegalArgumentException("A imagem tem menos de 1 MiB ($size bytes).")
+                    }
+                    bridge.nativeInspectIso(descriptor.fd)
+                } ?: throw IllegalStateException("O Android não conseguiu reabrir a ISO selecionada.")
+
+                DiagnosticLog.log("PLAY_NATIVE_ISO_INSPECT", inspectionResult)
+                if (!inspectionResult.startsWith("ISO_OK:")) {
+                    throw IllegalArgumentException(inspectionResult)
                 }
-                DiagnosticLog.log("PLAY_NATIVE_ISO_INSPECT", "Checking ISO9660 and expected God Hand boot files")
-                bridge.nativeInspectIso(descriptor.fd)
-            } ?: throw IllegalStateException("O Android não conseguiu reabrir a ISO selecionada.")
 
-            DiagnosticLog.log("PLAY_NATIVE_RESULT", inspectionResult)
-            val runtimeStatus = bridge.nativeRuntimeStatus()
-            DiagnosticLog.log("PLAY_RUNTIME_STATUS", runtimeStatus)
-            updateStatus(inspectionResult)
-            val isExpectedDisc = inspectionResult.startsWith("ISO_OK:")
-            AlertDialog.Builder(this)
-                .setTitle(if (isExpectedDisc) "Runtime integrado parcialmente" else "ISO não reconhecida")
-                .setMessage(
-                    "$inspectionResult\n\nEstado do runtime: $runtimeStatus\n\nA verificação confirma a estrutura do disco; ela não inicia o jogo enquanto o código recompilado específico de God Hand não estiver gerado e ligado ao APK."
-                )
-                .setPositiveButton("OK", null)
-                .show()
-        } catch (error: Throwable) {
-            DiagnosticLog.exception("PLAY_FAILED", error)
-            updateStatus("Falha na inicialização: ${error.javaClass.simpleName}: ${error.message}")
-            showError("A inicialização falhou. O erro foi gravado no log.", error.message)
+                val cacheDir = File(filesDir, "godhand_cache")
+                if (!cacheDir.exists() && !cacheDir.mkdirs()) {
+                    throw IllegalStateException("Não foi possível criar o diretório privado: ${cacheDir.absolutePath}")
+                }
+
+                val descriptor = contentResolver.openFileDescriptor(uri, "r")
+                    ?: throw IllegalStateException("O Android não conseguiu abrir a ISO para extração.")
+                val isoSize = descriptor.statSize
+                if (isoSize > 0 && isoSize < 1_048_576) {
+                    descriptor.close()
+                    throw IllegalArgumentException("A imagem tem menos de 1 MiB ($isoSize bytes).")
+                }
+                val ownedFd = descriptor.detachFd()
+                DiagnosticLog.log("ISO_EXTRACT", "Starting native extraction to ${cacheDir.absolutePath}; ISO size=$isoSize bytes")
+                val extracted = bridge.extractAndCacheIsoFromFd(ownedFd, cacheDir.absolutePath, this)
+                if (!extracted) {
+                    throw IllegalStateException("O extrator nativo não conseguiu concluir a extração da ISO. Consulte o log.")
+                }
+
+                DiagnosticLog.log("ISO_EXTRACT", "Extraction completed")
+                runOnUiThread { updateStatus("Arquivos extraídos. Preparando o índice de dados...") }
+                bridge.buildAfsFastIndex(cacheDir.absolutePath)
+                DiagnosticLog.log("AFS_INDEX", "AFS validation/index stage completed")
+                val runtimeStatus = bridge.nativeRuntimeStatus()
+                DiagnosticLog.log("PLAY_RUNTIME_STATUS", runtimeStatus)
+
+                runOnUiThread {
+                    launchInProgress = false
+                    updateStatus("Arquivos preparados. Abrindo o runtime gráfico Android...")
+                    startActivity(Intent(this, GameActivity::class.java))
+                }
+            } catch (error: Throwable) {
+                DiagnosticLog.exception("PLAY_FAILED", error)
+                runOnUiThread {
+                    launchInProgress = false
+                    updateStatus("Falha ao iniciar: ${error.javaClass.simpleName}: ${error.message}")
+                    showError("A preparação ou inicialização falhou.", error.message)
+                }
+            }
+        }, "GodHandIsoPrepare").start()
+    }
+
+    /** Called from JNI while the native ISO extractor reports progress. */
+    @Suppress("unused")
+    fun onNativeProgress(percent: Int, stage: String, message: String) {
+        DiagnosticLog.log("NATIVE_EXTRACT", "$percent% [$stage] $message")
+        runOnUiThread {
+            updateStatus("$percent% — $stage\n$message")
         }
     }
 
