@@ -77,22 +77,11 @@ endif()
 # this repository remains unchanged.
 set(_godhand_local_native "${CMAKE_CURRENT_SOURCE_DIR}/native-lib.cpp")
 file(READ "${_godhand_local_native}" _godhand_local_native_source)
-set(_godhand_local_main_stub [=[
- // raylib's Android platform object references a conventional main() even when
- // its static archive is linked into this app's JNI library. This app is a normal
- // Activity/JNI application (not a NativeActivity), so this entry point is only
- // a link-time compatibility stub and is never used to launch the game.
-int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
-    return 0;
-}
-]=])
-string(FIND "${_godhand_local_native_source}" "${_godhand_local_main_stub}" _godhand_local_main_match)
+string(FIND "${_godhand_local_native_source}" "int main(int argc, char** argv) {" _godhand_local_main_match)
 if(_godhand_local_main_match EQUAL -1)
-    message(FATAL_ERROR "Could not isolate the old native-lib.cpp main() stub safely.")
+    message(FATAL_ERROR "Could not locate the old native-lib.cpp main() stub safely.")
 endif()
-string(REPLACE "${_godhand_local_main_stub}" ""
+string(REGEX REPLACE "int main\\(int argc, char\\*\\* argv\\) \\{[^}]*\\}" ""
     _godhand_local_native_source "${_godhand_local_native_source}")
 set(_godhand_native_compat_cpp "${CMAKE_CURRENT_BINARY_DIR}/native-lib-android.cpp")
 file(WRITE "${_godhand_native_compat_cpp}" "${_godhand_local_native_source}")
