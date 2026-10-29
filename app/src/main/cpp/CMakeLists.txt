@@ -84,9 +84,7 @@ string(REPLACE "-mtune=cortex-a78" "-mtune=generic"
     _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
 file(WRITE "${_godhand_reference_cmake}" "${_godhand_reference_cmake_source}")
 
-# Reuse the tested Android port's full build graph: PCSX2 GS graphics backend,
-# Android surface bridge, IOP, audio, game host code, 10k+ generated EE functions,
-# and 81 generated SNR2 overlays. Do not mix it with a second PS2Runtime build.
+# Reuse the tested Android port's full build graph.
 add_subdirectory("${GODHAND_REFERENCE_CPP_DIR}"
     "${CMAKE_CURRENT_BINARY_DIR}/godhand_android_reference")
 
@@ -94,19 +92,12 @@ if(NOT TARGET godhand_android)
     message(FATAL_ERROR "Reference CMake did not create the godhand_android JNI library.")
 endif()
 
-# Oboe is built with -Werror upstream. This pinned revision has unused
-# sharedParentStream parameters in AudioStreamAAudio.cpp; keep the warning but
-# do not let that third-party warning abort the Android build.
 if(TARGET oboe)
-    target_compile_options(oboe PRIVATE
-        -Wno-error=unused-parameter
-    )
+    target_compile_options(oboe PRIVATE -Wno-error=unused-parameter)
 endif()
 
 # Keep the existing project's ISO diagnostics and status JNI methods, but remove
-# its obsolete main() link stub: the reference Android entry point already owns
-# the one required by raylib. Generate a build-tree copy so the source file in
-# this repository remains unchanged.
+# its obsolete main() link stub from the generated build-tree copy.
 set(_godhand_local_native "${CMAKE_CURRENT_SOURCE_DIR}/native-lib.cpp")
 file(READ "${_godhand_local_native}" _godhand_local_native_source)
 string(FIND "${_godhand_local_native_source}" "int main(int argc, char** argv) {" _godhand_local_main_match)
@@ -118,7 +109,10 @@ string(REGEX REPLACE "int main\\(int argc, char\\*\\* argv\\) \\{[^}]*\\}" ""
 set(_godhand_native_compat_cpp "${CMAKE_CURRENT_BINARY_DIR}/native-lib-android.cpp")
 file(WRITE "${_godhand_native_compat_cpp}" "${_godhand_local_native_source}")
 
-target_sources(godhand_android PRIVATE "${_godhand_native_compat_cpp}")
+target_sources(godhand_android PRIVATE
+    "${_godhand_native_compat_cpp}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/NativeCrashLogger.cpp"
+)
 target_include_directories(godhand_android PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_definitions(godhand_android PRIVATE
     GODHAND_UPSTREAM_RUNTIME_LINKED=1
@@ -128,4 +122,4 @@ set_source_files_properties("${_godhand_native_compat_cpp}" PROPERTIES
     COMPILE_OPTIONS "-include;${GODHAND_REFERENCE_CPP_DIR}/simd_arm64_compat.h"
 )
 
-message(STATUS "God Hand Android integration: full reference runtime, graphics backend, game code and JNI boot path enabled")
+message(STATUS "God Hand Android integration: full reference runtime plus persistent native crash diagnostics")
