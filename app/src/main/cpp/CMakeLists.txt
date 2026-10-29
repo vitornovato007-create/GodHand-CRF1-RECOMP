@@ -254,6 +254,10 @@ set(GODHAND_REFERENCE_GENERATED_DIR "${GODHAND_REFERENCE_CPP_DIR}/generated")
 file(GLOB GODHAND_REFERENCE_UNITY_CPP CONFIGURE_DEPENDS
     "${GODHAND_REFERENCE_CPP_DIR}/generated_unity/gh_unity_batch_*.cpp"
 )
+# register_functions.cpp is compiled directly below as GODHAND_REGISTER_SOURCE.
+# The reference tree also has gh_unity_batch_register.cpp, which textually
+# includes that same .cpp; compiling both creates duplicate dispatch-table symbols.
+list(FILTER GODHAND_REFERENCE_UNITY_CPP EXCLUDE REGEX "/gh_unity_batch_register[.]cpp$")
 
 set(GODHAND_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated" CACHE PATH
     "Directory containing locally generated God Hand C++ sources")
