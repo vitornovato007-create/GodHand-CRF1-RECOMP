@@ -26,6 +26,13 @@ class IsoPickerActivity : ComponentActivity() {
     private var selectedIsoUri: Uri? = null
     private var selectedIsoName: String? = null
 
+    @Volatile
+    private var launchInProgress = false
+
+    @Volatile
+    private var lastNativeProgressPercent = -1
+
+
     private val isoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) {
             DiagnosticLog.log("ISO_PICKER", "User cancelled document picker")
@@ -208,12 +215,6 @@ class IsoPickerActivity : ComponentActivity() {
             clearStoredIso()
         }
     }
-
-    @Volatile
-    private var launchInProgress = false
-
-    @Volatile
-    private var lastNativeProgressPercent = -1
 
     private fun onPlayClicked() {
         DiagnosticLog.log("PLAY_CLICK", "User requested game boot")
