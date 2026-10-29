@@ -30,13 +30,15 @@ set(_godhand_jni_bridge "${GODHAND_REFERENCE_CPP_DIR}/jni_bridge.cpp")
 file(READ "${_godhand_jni_bridge}" _godhand_jni_source)
 set(_godhand_jni_old_prefix "Java_com_owaissseeee_godhand_NativeBridge_")
 set(_godhand_jni_new_prefix "Java_com_crf1_godhand_RuntimeBridge_")
-string(FIND "${_godhand_jni_source}" "${_godhand_jni_old_prefix}onSurfaceCreated" _godhand_jni_match)
-if(_godhand_jni_match EQUAL -1)
+string(FIND "${_godhand_jni_source}" "${_godhand_jni_old_prefix}onSurfaceCreated" _godhand_jni_old_match)
+string(FIND "${_godhand_jni_source}" "${_godhand_jni_new_prefix}onSurfaceCreated" _godhand_jni_new_match)
+if(NOT _godhand_jni_old_match EQUAL -1)
+    string(REPLACE "${_godhand_jni_old_prefix}" "${_godhand_jni_new_prefix}"
+        _godhand_jni_source "${_godhand_jni_source}")
+elseif(_godhand_jni_new_match EQUAL -1)
     message(FATAL_ERROR
         "Pinned Android bridge JNI names changed; review the integration before building.")
 endif()
-string(REPLACE "${_godhand_jni_old_prefix}" "${_godhand_jni_new_prefix}"
-    _godhand_jni_source "${_godhand_jni_source}")
 file(WRITE "${_godhand_jni_bridge}" "${_godhand_jni_source}")
 
 # The upstream Android boot path has historical package IDs in its cache list.
@@ -52,13 +54,16 @@ set(_godhand_cache_replacement [=[
         "/data/data/com.crf1.godhand/files/godhand_cache",
         "/data/user/0/com.crf1.godhand/files/godhand_cache",
 ]=])
-string(FIND "${_godhand_main_source}" "${_godhand_cache_anchor}" _godhand_cache_anchor_match)
-if(_godhand_cache_anchor_match EQUAL -1)
-    message(FATAL_ERROR
-        "Could not locate the Android game-cache candidates in the pinned reference src/main.cpp.")
+string(FIND "${_godhand_main_source}" "/data/data/com.crf1.godhand/files/godhand_cache" _godhand_cache_already_patched)
+if(_godhand_cache_already_patched EQUAL -1)
+    string(FIND "${_godhand_main_source}" "${_godhand_cache_anchor}" _godhand_cache_anchor_match)
+    if(_godhand_cache_anchor_match EQUAL -1)
+        message(FATAL_ERROR
+            "Could not locate the Android game-cache candidates in the pinned reference src/main.cpp.")
+    endif()
+    string(REPLACE "${_godhand_cache_anchor}" "${_godhand_cache_replacement}"
+        _godhand_main_source "${_godhand_main_source}")
 endif()
-string(REPLACE "${_godhand_cache_anchor}" "${_godhand_cache_replacement}"
-    _godhand_main_source "${_godhand_main_source}")
 file(WRITE "${_godhand_main_cpp}" "${_godhand_main_source}")
 
 # The reference was tuned for a newer Cortex-A78 phone. Keep the build usable on
@@ -68,11 +73,13 @@ file(WRITE "${_godhand_main_cpp}" "${_godhand_main_source}")
 set(_godhand_reference_cmake "${GODHAND_REFERENCE_CPP_DIR}/CMakeLists.txt")
 file(READ "${_godhand_reference_cmake}" _godhand_reference_cmake_source)
 string(FIND "${_godhand_reference_cmake_source}" "-march=armv8.2-a+dotprod+fp16+rcpc" _godhand_arch_flag_match)
-if(_godhand_arch_flag_match EQUAL -1)
+string(FIND "${_godhand_reference_cmake_source}" "-march=armv8.2-a" _godhand_arch_baseline_match)
+if(NOT _godhand_arch_flag_match EQUAL -1)
+    string(REPLACE "-march=armv8.2-a+dotprod+fp16+rcpc" "-march=armv8.2-a"
+        _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
+elseif(_godhand_arch_baseline_match EQUAL -1)
     message(FATAL_ERROR "Reference CPU tuning flag changed; review ARM64 compatibility before building.")
 endif()
-string(REPLACE "-march=armv8.2-a+dotprod+fp16+rcpc" "-march=armv8.2-a"
-    _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
 string(REPLACE "-mtune=cortex-a78" "-mtune=generic"
     _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
 file(WRITE "${_godhand_reference_cmake}" "${_godhand_reference_cmake_source}")
