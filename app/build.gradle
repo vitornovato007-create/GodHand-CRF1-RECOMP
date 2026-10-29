@@ -33,6 +33,13 @@ android {
         cmake {
             path file('src/main/cpp/CMakeLists.txt')
             version '3.22.1'
+
+            // Build only the actual JNI library used by this Android app.
+            // The reference runtime also defines a standalone ps2EntryRunner
+            // shared target for Android, but it is not the app's entry point
+            // and has unresolved desktop/runner input hooks when linked alone.
+            // godhand_android already links its required native dependencies.
+            targets 'godhand_android'
         }
     }
 
