@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <mutex>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -18,6 +20,8 @@ namespace {
 constexpr const char* kTag = "GodHandCrash";
 volatile sig_atomic_t g_crashLogFd = -1;
 volatile sig_atomic_t g_handlersInstalled = 0;
+std::mutex g_nativeLogMutex;
+constexpr off_t kMaxNativeLogBytes = 2 * 1024 * 1024;
 struct sigaction g_previousActions[5]{};
 constexpr int kWatchedSignals[] = {SIGSEGV, SIGABRT, SIGBUS, SIGILL, SIGFPE};
 
@@ -121,6 +125,24 @@ void nativeFatalSignalHandler(int signalNumber, siginfo_t* info, void* context) 
 void writeNativeLine(const char* message, size_t length) {
     const int fd = static_cast<int>(g_crashLogFd);
     if (fd < 0 || message == nullptr || length == 0) return;
+
+    // Native messages may arrive from several runtime threads. Serialize the
+    // ordinary logger writes so timestamp prefixes and messages cannot interleave.
+    // The fatal-signal handler intentionally does not take this mutex because
+    // mutex operations are not async-signal-safe.
+    const std::lock_guard<std::mutex> guard(g_nativeLogMutex);
+
+    struct stat current {};
+    if (fstat(fd, &current) == 0 &&
+        current.st_size + static_cast<off_t>(length) + 128 > kMaxNativeLogBytes) {
+        // Keep the native journal bounded without replacing its open descriptor:
+        // DiagnosticLog.clear() and the crash handler continue using this inode.
+        if (ftruncate(fd, 0) == 0) {
+            static constexpr char rollover[] =
+                "[NATIVE_DIAGNOSTICS] Log limit reached; previous native records were rotated out.\n";
+            (void)write(fd, rollover, sizeof(rollover) - 1);
+        }
+    }
 
     struct timespec now {};
     if (clock_gettime(CLOCK_MONOTONIC, &now) == 0) {
