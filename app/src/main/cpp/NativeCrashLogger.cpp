@@ -16,6 +16,7 @@
 namespace {
 constexpr const char* kTag = "GodHandCrash";
 volatile sig_atomic_t g_crashLogFd = -1;
+volatile sig_atomic_t g_handlersInstalled = 0;
 struct sigaction g_previousActions[5]{};
 constexpr int kWatchedSignals[] = {SIGSEGV, SIGABRT, SIGBUS, SIGILL, SIGFPE};
 
@@ -157,17 +158,20 @@ Java_com_crf1_godhand_RuntimeBridge_nativeConfigureCrashLog(
     g_crashLogFd = fd;
     if (oldFd >= 0 && oldFd != fd) close(oldFd);
 
-    struct sigaction action {};
-    action.sa_sigaction = nativeFatalSignalHandler;
-    sigemptyset(&action.sa_mask);
-    action.sa_flags = SA_SIGINFO | SA_NODEFER | SA_ONSTACK;
+    if (!g_handlersInstalled) {
+        struct sigaction action {};
+        action.sa_sigaction = nativeFatalSignalHandler;
+        sigemptyset(&action.sa_mask);
+        action.sa_flags = SA_SIGINFO | SA_NODEFER | SA_ONSTACK;
 
-    for (int i = 0; i < 5; ++i) {
-        if (sigaction(kWatchedSignals[i], &action, &g_previousActions[i]) != 0) {
-            __android_log_print(ANDROID_LOG_ERROR, kTag,
-                                "Could not install chained handler for signal %d: errno=%d",
-                                kWatchedSignals[i], errno);
+        for (int i = 0; i < 5; ++i) {
+            if (sigaction(kWatchedSignals[i], &action, &g_previousActions[i]) != 0) {
+                __android_log_print(ANDROID_LOG_ERROR, kTag,
+                                    "Could not install chained handler for signal %d: errno=%d",
+                                    kWatchedSignals[i], errno);
+            }
         }
+        g_handlersInstalled = 1;
     }
 
     static constexpr char ready[] =
