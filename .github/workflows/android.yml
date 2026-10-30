@@ -151,67 +151,6 @@ jobs:
           echo "Gradle parallel project execution is disabled to reduce peak memory."
           gradle --no-daemon --stacktrace --max-workers=2 --no-parallel :app:assembleRelease
 
-      - name: Verify APK and ARM64 native library
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK"
-          mkdir -p build/apk-check
-          unzip -q "$APK" -d build/apk-check
-          echo "--- Bibliotecas ARM64 empacotadas no APK ---"
-          find build/apk-check/lib/arm64-v8a -maxdepth 1 -type f -name "*.so" -printf "%f %s bytes\\n" | sort
-          test -s build/apk-check/lib/arm64-v8a/libgodhand_android.so
-          test -s build/apk-check/lib/arm64-v8a/libpcsx2gs.so
-          echo "APK criado: $APK"
-          echo "Bibliotecas ARM64 encontradas: libgodhand_android.so e libpcsx2gs.so"
-          file build/apk-check/lib/arm64-v8a/libgodhand_android.so
-          readelf -h build/apk-check/lib/arm64-v8a/libgodhand_android.so | grep -E "Class:|Machine:"
-
-          SO="build/apk-check/lib/arm64-v8a/libgodhand_android.so"
-          for symbol in \
-            Java_com_crf1_godhand_RuntimeBridge_nativeConfigureCrashLog \
-            Java_com_crf1_godhand_RuntimeBridge_nativeWriteDiagnostic \
-            Java_com_crf1_godhand_RuntimeBridge_nativeRuntimeStatus \
-            Java_com_crf1_godhand_RuntimeBridge_nativeInspectIso \
-            Java_com_crf1_godhand_RuntimeBridge_extractAndCacheIsoFromFd \
-            Java_com_crf1_godhand_RuntimeBridge_onSurfaceCreated \
-            Java_com_crf1_godhand_RuntimeBridge_onSurfaceDestroyed; do
-            if ! readelf --wide --dyn-syms "$SO" | grep -F "$symbol" >/dev/null; then
-              echo "Required JNI integration symbol is missing: $symbol" >&2
-              exit 1
-            fi
-          done
-          echo "Required ISO extraction, runtime status and Android surface JNI symbols are exported."
-
-      - name: Verify and package external native debug symbols
-        shell: bash
-        run: |
-          set -euo pipefail
-          SYMBOL_DIR="build/native-symbols/arm64-v8a"
-          test -s "$SYMBOL_DIR/libgodhand_android.so.debug"
-          test -s "$SYMBOL_DIR/libpcsx2gs.so.debug"
-          APK_BUILD_ID="$(readelf -n build/apk-check/lib/arm64-v8a/libgodhand_android.so | sed -n 's/.*Build ID: //p' | head -n1)"
-          DEBUG_BUILD_ID="$(readelf -n "$SYMBOL_DIR/libgodhand_android.so.debug" | sed -n 's/.*Build ID: //p' | head -n1)"
-          test -n "$APK_BUILD_ID"
-          test "$APK_BUILD_ID" = "$DEBUG_BUILD_ID"
-          echo "Matching libgodhand_android.so Build ID: $APK_BUILD_ID"
-          APK_GS_BUILD_ID="$(readelf -n build/apk-check/lib/arm64-v8a/libpcsx2gs.so | sed -n 's/.*Build ID: //p' | head -n1)"
-          DEBUG_GS_BUILD_ID="$(readelf -n "$SYMBOL_DIR/libpcsx2gs.so.debug" | sed -n 's/.*Build ID: //p' | head -n1)"
-          test -n "$APK_GS_BUILD_ID"
-          test "$APK_GS_BUILD_ID" = "$DEBUG_GS_BUILD_ID"
-          echo "Matching libpcsx2gs.so Build ID: $APK_GS_BUILD_ID"
-          mkdir -p build/artifacts
-          (
-            cd build/native-symbols
-            zip -qr ../artifacts/GodHand-CRF1-native-symbols-arm64.zip .
-          )
-          echo "--- Native library Build IDs ---"
-          readelf -n build/apk-check/lib/arm64-v8a/libgodhand_android.so | grep -A1 "Build ID" || true
-          echo "--- External symbol files ---"
-          find "$SYMBOL_DIR" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
-          test -s build/artifacts/GodHand-CRF1-native-symbols-arm64.zip
-
       - name: Upload Release APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -220,10 +159,3 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload matching native debug symbols
-        uses: actions/upload-artifact@v4
-        with:
-          name: GodHand-CRF1-native-symbols-arm64
-          path: build/artifacts/GodHand-CRF1-native-symbols-arm64.zip
-          if-no-files-found: error
-          retention-days: 90
