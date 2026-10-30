@@ -1,5 +1,4 @@
 package com.crf1.godhand
-
 import android.content.Context
 import android.util.Log
 import java.io.File
@@ -16,12 +15,11 @@ object DiagnosticLog {
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
-        log("LOG", "Diagnostic logger initialized")
+        log("APP_START", "Persistent diagnostic journal initialized")
     }
 
     fun nativeLogPath(): String {
-        val context = appContext
-            ?: throw IllegalStateException("DiagnosticLog must be initialized before loading the native runtime")
+        val context = appContext ?: throw IllegalStateException("DiagnosticLog must be initialized before loading the native runtime")
         return File(context.filesDir, NATIVE_FILE_NAME).absolutePath
     }
 
@@ -34,7 +32,7 @@ object DiagnosticLog {
                 val context = appContext ?: return
                 File(context.filesDir, FILE_NAME).appendText(line + "\n", Charsets.UTF_8)
             } catch (error: Exception) {
-                Log.e(TAG, "Could not persist diagnostic log", error)
+                Log.e(TAG, "Could not persist diagnostic event", error)
             }
         }
     }
@@ -62,7 +60,7 @@ object DiagnosticLog {
                 appendLine("========== GODHAND JAVA/KOTLIN DIAGNOSTICS ==========")
                 appendLine(if (javaFile.exists()) javaFile.readText(Charsets.UTF_8) else "Nenhum evento Java/Kotlin gravado.")
                 appendLine()
-                appendLine("========== GODHAND NATIVE CRASH DIAGNOSTICS ==========")
+                appendLine("========== GODHAND NATIVE RUNTIME DIAGNOSTICS ==========")
                 appendLine(if (nativeFile.exists()) nativeFile.readText(Charsets.UTF_8) else "Nenhum registro nativo gravado.")
             }
         } catch (error: Exception) {
@@ -80,19 +78,16 @@ object DiagnosticLog {
                 Log.e(TAG, "Could not clear diagnostic logs", error)
             }
         }
-        log("LOG", "Java/Kotlin and native logs cleared by user")
+        log("LOG", "Diagnostic journal cleared by user")
     }
 
     fun installCrashHandler() {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
-            exception("UNCAUGHT_CRASH", error)
-            log("UNCAUGHT_CRASH", "Thread terminated: \${thread.name}")
-            if (previous != null) {
-                previous.uncaughtException(thread, error)
-            } else {
-                android.os.Process.killProcess(android.os.Process.myPid())
-            }
+            exception("UNCAUGHT_JAVA_CRASH", error)
+            log("UNCAUGHT_JAVA_CRASH", "Uncaught exception on thread \${thread.name}")
+            if (previous != null) previous.uncaughtException(thread, error)
+            else android.os.Process.killProcess(android.os.Process.myPid())
         }
     }
 }
