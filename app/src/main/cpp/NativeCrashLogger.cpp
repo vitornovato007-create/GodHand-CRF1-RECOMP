@@ -139,7 +139,7 @@ Java_com_crf1_godhand_RuntimeBridge_nativeConfigureCrashLog(
     struct sigaction action {};
     action.sa_sigaction = nativeFatalSignalHandler;
     sigemptyset(&action.sa_mask);
-    action.sa_flags = SA_SIGINFO | SA_NODEFER;
+    action.sa_flags = SA_SIGINFO | SA_NODEFER | SA_ONSTACK;
 
     for (int i = 0; i < 5; ++i) {
         if (sigaction(kWatchedSignals[i], &action, &g_previousActions[i]) != 0) {
