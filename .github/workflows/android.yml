@@ -116,7 +116,7 @@ jobs:
           test -s external/GodHandAndroidPort/app/src/main/cpp/thirdparty/pcsx2-gs-android/CMakeLists.txt
           echo "Reference boot, graphics, audio, generated EE and SNR2 sources are present."
 
-      - name: Build debug APK with bounded parallelism and RAM monitoring
+      - name: Build optimized Release APK with bounded parallelism and RAM monitoring
         shell: bash
         env:
           # CMake honors this when its build invocation does not override job count.
@@ -149,13 +149,13 @@ jobs:
 
           echo "Building ARM64 APK with at most 2 Gradle workers."
           echo "Gradle parallel project execution is disabled to reduce peak memory."
-          gradle --no-daemon --stacktrace --max-workers=2 --no-parallel :app:assembleDebug
+          gradle --no-daemon --stacktrace --max-workers=2 --no-parallel :app:assembleRelease
 
       - name: Verify APK and ARM64 native library
         shell: bash
         run: |
           set -euo pipefail
-          APK="app/build/outputs/apk/debug/app-debug.apk"
+          APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           mkdir -p build/apk-check
           unzip -q "$APK" -d build/apk-check
@@ -178,10 +178,35 @@ jobs:
           done
           echo "Required ISO extraction, runtime status and Android surface JNI symbols are exported."
 
-      - name: Upload APK artifact
+      - name: Verify and package external native debug symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+          SYMBOL_DIR="build/native-symbols/arm64-v8a"
+          test -s "$SYMBOL_DIR/libgodhand_android.so.debug"
+          mkdir -p build/artifacts
+          (
+            cd build/native-symbols
+            zip -qr ../artifacts/GodHand-CRF1-native-symbols-arm64.zip .
+          )
+          echo "--- Native library Build IDs ---"
+          readelf -n build/apk-check/lib/arm64-v8a/libgodhand_android.so | grep -A1 "Build ID" || true
+          echo "--- External symbol files ---"
+          find "$SYMBOL_DIR" -maxdepth 1 -type f -printf '%f %s bytes\\n' | sort
+          test -s build/artifacts/GodHand-CRF1-native-symbols-arm64.zip
+
+      - name: Upload Release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GodHand-CRF1-Android-ARM64-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: GodHand-CRF1-Android-ARM64-release
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
+
+      - name: Upload matching native debug symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: GodHand-CRF1-native-symbols-arm64
+          path: build/artifacts/GodHand-CRF1-native-symbols-arm64.zip
+          if-no-files-found: error
+          retention-days: 90
