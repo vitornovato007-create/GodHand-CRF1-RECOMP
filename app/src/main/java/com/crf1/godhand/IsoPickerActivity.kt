@@ -48,9 +48,26 @@ class IsoPickerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         DiagnosticLog.initialize(applicationContext)
         DiagnosticLog.installCrashHandler()
-        DiagnosticLog.log("APP_START", "IsoPickerActivity.onCreate; Android ${android.os.Build.VERSION.RELEASE}; ABI=${android.os.Build.SUPPORTED_ABIS.joinToString()}")
+        DiagnosticLog.log(
+            "DEVICE",
+            "manufacturer=${android.os.Build.MANUFACTURER}; model=${android.os.Build.MODEL}; " +
+                "device=${android.os.Build.DEVICE}; product=${android.os.Build.PRODUCT}; " +
+                "Android=${android.os.Build.VERSION.RELEASE}; SDK=${android.os.Build.VERSION.SDK_INT}; " +
+                "ABIs=${android.os.Build.SUPPORTED_ABIS.joinToString()}"
+        )
+        DiagnosticLog.log("APP_START", "IsoPickerActivity.onCreate")
         buildUi()
         restoreSelectedIso()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        DiagnosticLog.log("APP_LIFECYCLE", "IsoPickerActivity.onResume")
+    }
+
+    override fun onPause() {
+        DiagnosticLog.log("APP_LIFECYCLE", "IsoPickerActivity.onPause")
+        super.onPause()
     }
 
     private fun buildUi() {
