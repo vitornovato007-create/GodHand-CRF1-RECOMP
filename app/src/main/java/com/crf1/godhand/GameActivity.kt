@@ -42,6 +42,16 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         })
     }
 
+    override fun onResume() {
+        super.onResume()
+        DiagnosticLog.log("GAME_LIFECYCLE", "GameActivity.onResume")
+    }
+
+    override fun onPause() {
+        DiagnosticLog.log("GAME_LIFECYCLE", "GameActivity.onPause")
+        super.onPause()
+    }
+
     override fun surfaceCreated(holder: SurfaceHolder) {
         DiagnosticLog.log("GS_SURFACE", "Surface created; waiting for valid dimensions")
         bridge.nativeWriteDiagnostic("[SURFACE] Android Surface created; waiting for dimensions")
