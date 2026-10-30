@@ -398,8 +398,29 @@ class IsoPickerActivity : ComponentActivity() {
         val refresh = object : Runnable {
             override fun run() {
                 if (!dialog.isShowing) return
-                logView.text = DiagnosticLog.readAll()
-                scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+
+                val wasNearBottom =
+                    scroll.getChildAt(0).let { child ->
+                        child.bottom - (scroll.scrollY + scroll.height) <= dp(48)
+                    }
+                val previousScrollY = scroll.scrollY
+                val latestText = DiagnosticLog.readAll()
+
+                // Avoid resetting the TextView every second when no new event
+                // arrived. If the user is inspecting older lines, preserve their
+                // position instead of forcing the monitor back to the bottom.
+                if (logView.text.toString() != latestText) {
+                    logView.text = latestText
+                    scroll.post {
+                        if (wasNearBottom) {
+                            scroll.fullScroll(ScrollView.FOCUS_DOWN)
+                        } else {
+                            scroll.scrollTo(0, previousScrollY.coerceAtMost(
+                                (scroll.getChildAt(0).height - scroll.height).coerceAtLeast(0)
+                            ))
+                        }
+                    }
+                }
                 handler.postDelayed(this, 1000L)
             }
         }
@@ -422,8 +443,8 @@ class IsoPickerActivity : ComponentActivity() {
     }
 
     private fun shareLog() {
-        val text = DiagnosticLog.readAll()
         DiagnosticLog.log("LOG_EXPORT", "User requested diagnostic log export")
+        val text = DiagnosticLog.readAll()
         val sendIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, "GodHand CRF1 - diagnóstico")
