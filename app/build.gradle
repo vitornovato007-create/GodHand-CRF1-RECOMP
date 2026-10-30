@@ -51,6 +51,12 @@ android {
             debuggable false
             minifyEnabled false
             shrinkResources false
+
+            // This branch produces test APKs, not Play Store releases.
+            // Sign the Release APK with AGP's standard debug keystore so
+            // Android Package Installer accepts the generated package.
+            signingConfig signingConfigs.debug
+
             // Native DWARF symbols are split by CMake into build/native-symbols.
             // Keep the APK's .so files stripped while preserving external symbols.
         }
