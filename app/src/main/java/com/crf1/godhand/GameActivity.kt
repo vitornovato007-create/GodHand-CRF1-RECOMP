@@ -49,13 +49,13 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
         if (width <= 0 || height <= 0 || !holder.surface.isValid) {
-            DiagnosticLog.log("GS_SURFACE", "Ignoring invalid surface dimensions \${width}x\${height}")
-            bridge.nativeWriteDiagnostic("[SURFACE] Ignored invalid surface dimensions \${width}x\${height}")
+            DiagnosticLog.log("GS_SURFACE", "Ignoring invalid surface dimensions ${width}x${height}")
+            bridge.nativeWriteDiagnostic("[SURFACE] Ignored invalid surface dimensions ${width}x${height}")
             return
         }
 
         try {
-            val config = "size=\${width}x\${height}; renderer=Vulkan; scale=0.75x; aspect=fullscreen; fps=30"
+            val config = "size=${width}x${height}; renderer=Vulkan; scale=0.75x; aspect=fullscreen; fps=30"
             DiagnosticLog.log("GAME_BOOT", "Attaching Android surface; $config")
             bridge.nativeWriteDiagnostic("[BOOT] Calling upstream onSurfaceCreated; $config")
             // Renderer index 0 = Vulkan; resolution scale index 1 = 0.75x;
@@ -79,7 +79,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
             DiagnosticLog.exception("GAME_BOOT_FAILED", error)
             try {
                 bridge.nativeWriteDiagnostic(
-                    "[BOOT_EXCEPTION] \${error.javaClass.name}: \${error.message ?: "(no message)"}"
+                    "[BOOT_EXCEPTION] ${error.javaClass.name}: ${error.message ?: "(no message)"}"
                 )
             } catch (_: Throwable) {
                 // Preserve the original surface initialization exception.
