@@ -12,6 +12,7 @@ object DiagnosticLog {
     private const val NATIVE_FILE_NAME = "godhand-native-crash.log"
     private val lock = Any()
     @Volatile private var appContext: Context? = null
+    @Volatile private var crashHandlerInstalled = false
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
@@ -82,6 +83,8 @@ object DiagnosticLog {
     }
 
     fun installCrashHandler() {
+        if (crashHandlerInstalled) return
+        crashHandlerInstalled = true
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             exception("UNCAUGHT_JAVA_CRASH", error)
