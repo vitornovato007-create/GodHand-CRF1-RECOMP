@@ -160,10 +160,12 @@ jobs:
           mkdir -p build/apk-check
           unzip -q "$APK" -d build/apk-check
           test -s build/apk-check/lib/arm64-v8a/libgodhand_android.so
-          test -s build/apk-check/lib/arm64-v8a/libpcsx2gs.so
           echo "APK criado: $APK"
           echo "Biblioteca ARM64 encontrada: lib/arm64-v8a/libgodhand_android.so"
           file build/apk-check/lib/arm64-v8a/libgodhand_android.so
+          echo "--- Bibliotecas ARM64 realmente empacotadas ---"
+          find build/apk-check/lib/arm64-v8a -maxdepth 1 -type f -name "*.so" -printf "%f %s bytes\\n" | sort
+          readelf -h build/apk-check/lib/arm64-v8a/libgodhand_android.so | grep -E "Class:|Machine:"
 
           SO="build/apk-check/lib/arm64-v8a/libgodhand_android.so"
           for symbol in \
@@ -174,7 +176,7 @@ jobs:
             Java_com_crf1_godhand_RuntimeBridge_extractAndCacheIsoFromFd \
             Java_com_crf1_godhand_RuntimeBridge_onSurfaceCreated \
             Java_com_crf1_godhand_RuntimeBridge_onSurfaceDestroyed; do
-            if ! readelf --wide --symbols "$SO" | grep -F "$symbol" >/dev/null; then
+            if ! readelf --wide --dyn-syms "$SO" | grep -F "$symbol" >/dev/null; then
               echo "Required JNI integration symbol is missing: $symbol" >&2
               exit 1
             fi
@@ -187,17 +189,12 @@ jobs:
           set -euo pipefail
           SYMBOL_DIR="build/native-symbols/arm64-v8a"
           test -s "$SYMBOL_DIR/libgodhand_android.so.debug"
-          test -s "$SYMBOL_DIR/libpcsx2gs.so.debug"
           APK_BUILD_ID="$(readelf -n build/apk-check/lib/arm64-v8a/libgodhand_android.so | sed -n 's/.*Build ID: //p' | head -n1)"
           DEBUG_BUILD_ID="$(readelf -n "$SYMBOL_DIR/libgodhand_android.so.debug" | sed -n 's/.*Build ID: //p' | head -n1)"
           test -n "$APK_BUILD_ID"
           test "$APK_BUILD_ID" = "$DEBUG_BUILD_ID"
           echo "Matching libgodhand_android.so Build ID: $APK_BUILD_ID"
-          APK_GS_BUILD_ID="$(readelf -n build/apk-check/lib/arm64-v8a/libpcsx2gs.so | sed -n 's/.*Build ID: //p' | head -n1)"
-          DEBUG_GS_BUILD_ID="$(readelf -n "$SYMBOL_DIR/libpcsx2gs.so.debug" | sed -n 's/.*Build ID: //p' | head -n1)"
-          test -n "$APK_GS_BUILD_ID"
-          test "$APK_GS_BUILD_ID" = "$DEBUG_GS_BUILD_ID"
-          echo "Matching libpcsx2gs.so Build ID: $APK_GS_BUILD_ID"
+          echo "PCSX2 GS is linked into libgodhand_android.so by the pinned reference CMake target; its symbols are included in the main library debug file."
           mkdir -p build/artifacts
           (
             cd build/native-symbols
