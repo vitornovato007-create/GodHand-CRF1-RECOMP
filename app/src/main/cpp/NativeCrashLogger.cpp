@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <time.h>
 #include <ucontext.h>
 
 namespace {
@@ -120,6 +121,28 @@ void nativeFatalSignalHandler(int signalNumber, siginfo_t* info, void* context) 
 void writeNativeLine(const char* message, size_t length) {
     const int fd = static_cast<int>(g_crashLogFd);
     if (fd < 0 || message == nullptr || length == 0) return;
+
+    struct timespec now {};
+    if (clock_gettime(CLOCK_MONOTONIC, &now) == 0) {
+        static constexpr char timePrefix[] = "[native monotonic=";
+        static constexpr char separator[] = ".";
+        static constexpr char threadPrefix[] = " tid=";
+        static constexpr char closePrefix[] = "] ";
+        (void)write(fd, timePrefix, sizeof(timePrefix) - 1);
+        appendUnsigned(fd, static_cast<unsigned int>(now.tv_sec));
+        (void)write(fd, separator, sizeof(separator) - 1);
+        char nanos[9];
+        long value = now.tv_nsec;
+        for (int i = 8; i >= 0; --i) {
+            nanos[i] = static_cast<char>('0' + (value % 10));
+            value /= 10;
+        }
+        (void)write(fd, nanos, sizeof(nanos));
+        (void)write(fd, threadPrefix, sizeof(threadPrefix) - 1);
+        appendUnsigned(fd, static_cast<unsigned int>(syscall(SYS_gettid)));
+        (void)write(fd, closePrefix, sizeof(closePrefix) - 1);
+    }
+
     (void)write(fd, message, length);
     (void)write(fd, "\n", 1);
 }
