@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <ucontext.h>
 
 namespace {
 constexpr const char* kTag = "GodHandCrash";
@@ -57,13 +58,33 @@ void nativeFatalSignalHandler(int signalNumber, siginfo_t* info, void* context) 
     if (fd >= 0) {
         static constexpr char prefix[] = "\n========== NATIVE FATAL SIGNAL ==========\nSignal: ";
         static constexpr char address[] = "\nFault address: 0x";
-        static constexpr char suffix[] = "\nAndroid's original fatal-signal handler will now receive this signal.\n";
+        static constexpr char codeLabel[] = "\\nSignal code: ";
+        static constexpr char tidLabel[] = "\\nThread ID: ";
+        static constexpr char pcLabel[] = "\\nProgram counter (PC): 0x";
+        static constexpr char lrLabel[] = "\\nLink register (LR): 0x";
+        static constexpr char spLabel[] = "\\nStack pointer (SP): 0x";
+        static constexpr char suffix[] = "\\nAndroid's original fatal-signal handler will now receive this signal.\\n";
         (void)write(fd, prefix, sizeof(prefix) - 1);
         appendUnsigned(fd, static_cast<unsigned int>(signalNumber));
         if (info != nullptr) {
+            (void)write(fd, codeLabel, sizeof(codeLabel) - 1);
+            appendUnsigned(fd, static_cast<unsigned int>(info->si_code));
             (void)write(fd, address, sizeof(address) - 1);
             appendHex(fd, reinterpret_cast<uintptr_t>(info->si_addr));
         }
+        (void)write(fd, tidLabel, sizeof(tidLabel) - 1);
+        appendUnsigned(fd, static_cast<unsigned int>(syscall(SYS_gettid)));
+#if defined(__aarch64__)
+        if (context != nullptr) {
+            const auto* machine = static_cast<const ucontext_t*>(context);
+            (void)write(fd, pcLabel, sizeof(pcLabel) - 1);
+            appendHex(fd, static_cast<uintptr_t>(machine->uc_mcontext.pc));
+            (void)write(fd, lrLabel, sizeof(lrLabel) - 1);
+            appendHex(fd, static_cast<uintptr_t>(machine->uc_mcontext.regs[30]));
+            (void)write(fd, spLabel, sizeof(spLabel) - 1);
+            appendHex(fd, static_cast<uintptr_t>(machine->uc_mcontext.sp));
+        }
+#endif
         (void)write(fd, suffix, sizeof(suffix) - 1);
         // write() is async-signal-safe. fsync is used only to make this short
         // fatal record durable before chaining to Android's debuggerd handler.
