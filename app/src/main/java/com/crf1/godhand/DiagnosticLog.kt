@@ -25,7 +25,7 @@ object DiagnosticLog {
 
     fun log(stage: String, message: String) {
         val timestamp = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.US).format(Date())
-        val line = "\${timestamp} [\${Thread.currentThread().name}] [\${stage}] \${message}"
+        val line = "${timestamp} [${Thread.currentThread().name}] [${stage}] ${message}"
         Log.i(TAG, line)
         synchronized(lock) {
             try {
@@ -38,7 +38,7 @@ object DiagnosticLog {
     }
 
     fun exception(stage: String, error: Throwable) {
-        log(stage, "\${error.javaClass.name}: \${error.message ?: "(sem mensagem)"}")
+        log(stage, "${error.javaClass.name}: ${error.message ?: "(sem mensagem)"}")
         val stack = Log.getStackTraceString(error)
         synchronized(lock) {
             try {
@@ -64,7 +64,7 @@ object DiagnosticLog {
                 appendLine(if (nativeFile.exists()) nativeFile.readText(Charsets.UTF_8) else "Nenhum registro nativo gravado.")
             }
         } catch (error: Exception) {
-            "Falha ao ler logs: \${error.javaClass.simpleName}: \${error.message}"
+            "Falha ao ler logs: ${error.javaClass.simpleName}: ${error.message}"
         }
     }
 
@@ -85,7 +85,7 @@ object DiagnosticLog {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             exception("UNCAUGHT_JAVA_CRASH", error)
-            log("UNCAUGHT_JAVA_CRASH", "Uncaught exception on thread \${thread.name}")
+            log("UNCAUGHT_JAVA_CRASH", "Uncaught exception on thread ${thread.name}")
             if (previous != null) previous.uncaughtException(thread, error)
             else android.os.Process.killProcess(android.os.Process.myPid())
         }
