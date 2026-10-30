@@ -4,7 +4,7 @@ project(GodHandCRF1Android LANGUAGES C CXX)
 # Keep full DWARF data while linking Release so a matching external symbol file
 # can be generated before stripping the APK copy.
 add_compile_options($<$<CONFIG:Release>:-g> $<$<CONFIG:Release>:-fno-optimize-sibling-calls>)
-add_link_options($<$<CONFIG:Release>:-Wl,--build-id=sha1>)
+add_link_options($<$<CONFIG:Release>:-g> $<$<CONFIG:Release>:-Wl,--build-id=sha1>)
 
 # This app now builds the complete, pinned Android port implementation rather
 # than linking only the desktop runtime and reporting that boot is unavailable.
