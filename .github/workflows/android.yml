@@ -166,8 +166,6 @@ jobs:
           echo "APK criado: $APK"
           echo "Bibliotecas ARM64 encontradas: libgodhand_android.so e libpcsx2gs.so"
           file build/apk-check/lib/arm64-v8a/libgodhand_android.so
-          echo "--- Bibliotecas ARM64 realmente empacotadas ---"
-          find build/apk-check/lib/arm64-v8a -maxdepth 1 -type f -name "*.so" -printf "%f %s bytes\\n" | sort
           readelf -h build/apk-check/lib/arm64-v8a/libgodhand_android.so | grep -E "Class:|Machine:"
 
           SO="build/apk-check/lib/arm64-v8a/libgodhand_android.so"
