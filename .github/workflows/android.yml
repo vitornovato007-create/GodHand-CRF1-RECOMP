@@ -187,6 +187,11 @@ jobs:
           NDK_LLVM="$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin"
           READelf="$NDK_LLVM/llvm-readelf"
 
+          if [ ! -x "$READelf" ]; then
+            echo "::error::llvm-readelf not found: $READelf"
+            exit 1
+          fi
+
           if [ ! -d "$SYMBOLS_DIR" ]; then
             echo "::error::Native debug-symbol directory was not generated: $SYMBOLS_DIR"
             echo "CMake must run godhand_split_debug_symbols for the Release shared libraries."
@@ -198,15 +203,15 @@ jobs:
             "$SYMBOLS_DIR/libpcsx2gs.so.debug"
           )
 
-          for symbol_file in "${required_symbols[@]}"; do
+          for symbol_file in "$required_symbols[@]"; do
             if [ ! -s "$symbol_file" ]; then
               echo "::error::Required ARM64 debug-symbol file is missing or empty: $symbol_file"
               echo "Files currently present:"
-              find "$SYMBOLS_DIR" -maxdepth 1 -type f -printf '%f (%s bytes)\\n' | sort || true
+              find "$SYMBOLS_DIR" -maxdepth 1 -type f -printf '%f (%s bytes)\n' | sort || true
               exit 1
             fi
 
-            if ! "$READelf" --sections "$symbol_file" | grep -q '\\.debug_info'; then
+            if ! "$READelf" --sections "$symbol_file" | grep -q '\.debug_info'; then
               echo "::error::No DWARF .debug_info section found in $symbol_file"
               exit 1
             fi
@@ -221,18 +226,18 @@ jobs:
             echo "APK: GodHand-CRF1-Android-ARM64-release.apk"
             echo
             echo "Debug symbol files:"
-            find "$SYMBOLS_DIR" -maxdepth 1 -type f -name '*.debug' -printf '%f (%s bytes)\\n' | sort
+            find "$SYMBOLS_DIR" -maxdepth 1 -type f -name '*.debug' -printf '%f (%s bytes)\n' | sort
             echo
             echo "SHA-256:"
-            sha256sum "${required_symbols[@]}"
+            sha256sum "$required_symbols[@]"
             sha256sum "$ARTIFACT_DIR/GodHand-CRF1-Android-ARM64-release.apk"
           } > "$ARTIFACT_DIR/native-symbols-manifest.txt"
 
-          tar -czf "$ARTIFACT_DIR/GodHand-CRF1-Native-Debug-Symbols-ARM64.tar.gz" \\
+          tar -czf "$ARTIFACT_DIR/GodHand-CRF1-Native-Debug-Symbols-ARM64.tar.gz" \
             -C build/native-symbols arm64-v8a
 
           echo "Validated ARM64 debug symbols:"
-          ls -lh "${required_symbols[@]}"
+          ls -lh "$required_symbols[@]"
           ls -lh "$ARTIFACT_DIR/GodHand-CRF1-Native-Debug-Symbols-ARM64.tar.gz"
           cat "$ARTIFACT_DIR/native-symbols-manifest.txt"
 
