@@ -3,7 +3,7 @@ project(GodHandCRF1Android LANGUAGES C CXX)
 
 # Keep full DWARF data while linking Release so a matching external symbol file
 # can be generated before stripping the APK copy.
-add_compile_options($<$<CONFIG:Release>:-g>)
+add_compile_options($<$<CONFIG:Release>:-g> $<$<CONFIG:Release>:-fno-optimize-sibling-calls>)
 add_link_options($<$<CONFIG:Release>:-Wl,--build-id=sha1>)
 
 # This app now builds the complete, pinned Android port implementation rather
@@ -106,6 +106,8 @@ elseif(_godhand_arch_baseline_match EQUAL -1)
     message(FATAL_ERROR "Reference CPU tuning flag changed; review ARM64 compatibility before building.")
 endif()
 string(REPLACE "-mtune=cortex-a78" "-mtune=generic"
+    _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
+string(REPLACE "-fomit-frame-pointer" "-fno-omit-frame-pointer"
     _godhand_reference_cmake_source "${_godhand_reference_cmake_source}")
 file(WRITE "${_godhand_reference_cmake}" "${_godhand_reference_cmake_source}")
 
