@@ -26,10 +26,11 @@ android {
             cmake {
                 cppFlags '-std=c++17 -Wall -Wextra'
 
-                // Restrict the native build to the JNI library used by this app.
-                // Keep this inside defaultConfig: AGP reads the requested native
-                // targets from the variant's externalNativeBuild configuration.
-                targets += ['godhand_android']
+                // Build and package both shared libraries required at runtime.
+                // godhand_android links against pcsx2gs; omitting the latter from
+                // AGP's requested targets can leave libpcsx2gs.so out of the APK.
+                // Keep this inside defaultConfig for AGP's variant configuration.
+                targets += ['godhand_android', 'pcsx2gs']
             }
         }
     }
