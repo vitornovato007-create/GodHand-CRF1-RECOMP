@@ -46,24 +46,24 @@ elseif(_godhand_jni_new_match EQUAL -1)
 endif()
 # Persist all Android bridge log levels to the native journal as well as logcat.
 set(_godhand_log_decl [=[extern "C" void godhand_native_logf(const char*, ...);]=])
-string(REPLACE "#define LOGI(...)" "\${_godhand_log_decl}\n#define LOGI(...)" _godhand_jni_source "\${_godhand_jni_source}")
+string(REPLACE "#define LOGI(...)" "${_godhand_log_decl}\n#define LOGI(...)" _godhand_jni_source "${_godhand_jni_source}")
 string(REPLACE
     [=[#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "GodHandRecomp", __VA_ARGS__)]=]
     [=[#define LOGI(...) do { __android_log_print(ANDROID_LOG_INFO, "GodHandRecomp", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)]=]
-    _godhand_jni_source "\${_godhand_jni_source}")
+    _godhand_jni_source "${_godhand_jni_source}")
 string(REPLACE
     [=[#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "GodHandRecomp", __VA_ARGS__)]=]
     [=[#define LOGE(...) do { __android_log_print(ANDROID_LOG_ERROR, "GodHandRecomp", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)]=]
-    _godhand_jni_source "\${_godhand_jni_source}")
+    _godhand_jni_source "${_godhand_jni_source}")
 string(REPLACE
     [=[#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "GodHandRecomp", __VA_ARGS__)]=]
     [=[#define LOGW(...) do { __android_log_print(ANDROID_LOG_WARN, "GodHandRecomp", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)]=]
-    _godhand_jni_source "\${_godhand_jni_source}")
+    _godhand_jni_source "${_godhand_jni_source}")
 string(REPLACE
     [=[__android_log_print(ANDROID_LOG_INFO, "GodHandNative", "%s", line.c_str());]=]
     [=[__android_log_print(ANDROID_LOG_INFO, "GodHandNative", "%s", line.c_str());
                             godhand_native_logf("%s", line.c_str());]=]
-    _godhand_jni_source "\${_godhand_jni_source}")
+    _godhand_jni_source "${_godhand_jni_source}")
 file(WRITE "${_godhand_jni_bridge}" "${_godhand_jni_source}")
 
 # The upstream Android boot path has historical package IDs in its cache list.
