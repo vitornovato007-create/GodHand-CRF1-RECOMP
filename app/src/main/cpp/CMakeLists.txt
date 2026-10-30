@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(GodHandCRF1Android LANGUAGES C CXX)
 
-# Keep full DWARF data while linking Release so a matching external symbol file
-# can be generated before stripping the APK copy.
-add_compile_options($<$<CONFIG:Release>:-g> $<$<CONFIG:Release>:-fno-optimize-sibling-calls>)
-add_link_options($<$<CONFIG:Release>:-g> $<$<CONFIG:Release>:-Wl,--build-id=sha1>)
+# Keep full DWARF data and frame pointers for Release-like Android builds so
+# matching external symbols can be generated before AGP strips the APK copies.
+add_compile_options(
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:-g>
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:-fno-optimize-sibling-calls>
+)
+add_link_options(
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:-g>
+    $<$<OR:$<CONFIG:Release>,$<CONFIG:RelWithDebInfo>>:-Wl,--build-id=sha1>
+)
 
 # This app now builds the complete, pinned Android port implementation rather
 # than linking only the desktop runtime and reporting that boot is unavailable.
@@ -166,7 +172,7 @@ set_source_files_properties("${_godhand_native_compat_cpp}" PROPERTIES
 # Generate external, version-matched DWARF files before stripping shipped .so files.
 # The APK contains executable code and dynamic symbols; build/native-symbols retains
 # the full debug information needed to symbolize Android tombstones.
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
+if(CMAKE_BUILD_TYPE MATCHES "^(Release|RelWithDebInfo)$")
     set(_godhand_llvm_bin "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin")
     if(NOT CMAKE_OBJCOPY)
         find_program(CMAKE_OBJCOPY NAMES llvm-objcopy HINTS "${_godhand_llvm_bin}" REQUIRED)
