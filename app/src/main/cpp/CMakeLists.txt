@@ -64,6 +64,19 @@ string(REPLACE
     [=[__android_log_print(ANDROID_LOG_INFO, "GodHandNative", "%s", line.c_str());
                             godhand_native_logf("%s", line.c_str());]=]
     _godhand_jni_source "${_godhand_jni_source}")
+# Add explicit checkpoints around the native Android surface and EE boot thread.
+string(REPLACE
+    [=[ANativeWindow* win = ANativeWindow_fromSurface(env, surface);]=]
+    [=[LOGI("BOOT_CHECKPOINT: onSurfaceCreated entered; surface=%p size=%dx%d renderer=%d scale=%d aspect=%d fps=%d frameskip=%d", surface, width, height, rendererIdx, resScaleIdx, aspectIdx, fpsIdx, frameskipIdx);
+    ANativeWindow* win = ANativeWindow_fromSurface(env, surface);
+    LOGI("BOOT_CHECKPOINT: ANativeWindow_fromSurface returned %p", win);]=]
+    _godhand_jni_source "${_godhand_jni_source}")
+string(REPLACE
+    [=[godhand::bootAndroidRuntime(win, width, height, rendererIdx, resScaleIdx, aspectIdx, fpsIdx, frameskipIdx);]=]
+    [=[LOGI("BOOT_CHECKPOINT: entering bootAndroidRuntime");
+            godhand::bootAndroidRuntime(win, width, height, rendererIdx, resScaleIdx, aspectIdx, fpsIdx, frameskipIdx);
+            LOGI("BOOT_CHECKPOINT: bootAndroidRuntime returned");]=]
+    _godhand_jni_source "${_godhand_jni_source}")
 file(WRITE "${_godhand_jni_bridge}" "${_godhand_jni_source}")
 
 # The upstream Android boot path has historical package IDs in its cache list.
