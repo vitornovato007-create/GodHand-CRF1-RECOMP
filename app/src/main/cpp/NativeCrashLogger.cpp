@@ -58,12 +58,12 @@ void nativeFatalSignalHandler(int signalNumber, siginfo_t* info, void* context) 
     if (fd >= 0) {
         static constexpr char prefix[] = "\n========== NATIVE FATAL SIGNAL ==========\nSignal: ";
         static constexpr char address[] = "\nFault address: 0x";
-        static constexpr char codeLabel[] = "\\nSignal code: ";
-        static constexpr char tidLabel[] = "\\nThread ID: ";
-        static constexpr char pcLabel[] = "\\nProgram counter (PC): 0x";
-        static constexpr char lrLabel[] = "\\nLink register (LR): 0x";
-        static constexpr char spLabel[] = "\\nStack pointer (SP): 0x";
-        static constexpr char suffix[] = "\\nAndroid's original fatal-signal handler will now receive this signal.\\n";
+        static constexpr char codeLabel[] = "\nSignal code: ";
+        static constexpr char tidLabel[] = "\nThread ID: ";
+        static constexpr char pcLabel[] = "\nProgram counter (PC): 0x";
+        static constexpr char lrLabel[] = "\nLink register (LR): 0x";
+        static constexpr char spLabel[] = "\nStack pointer (SP): 0x";
+        static constexpr char suffix[] = "\nAndroid's original fatal-signal handler will now receive this signal.\n";
         (void)write(fd, prefix, sizeof(prefix) - 1);
         appendUnsigned(fd, static_cast<unsigned int>(signalNumber));
         if (info != nullptr) {
