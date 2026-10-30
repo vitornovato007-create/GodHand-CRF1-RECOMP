@@ -45,25 +45,26 @@ elseif(_godhand_jni_new_match EQUAL -1)
         "Pinned Android bridge JNI names changed; review the integration before building.")
 endif()
 # Persist all Android bridge log levels to the native journal as well as logcat.
-set(_godhand_log_decl "extern \\"C\\" void godhand_native_logf(const char*, ...);")
+set(_godhand_log_decl [=[extern "C" void godhand_native_logf(const char*, ...);]=])
 string(REPLACE "#define LOGI(...)" "\${_godhand_log_decl}\n#define LOGI(...)" _godhand_jni_source "\${_godhand_jni_source}")
 string(REPLACE
-    "#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, \\"GodHandRecomp\\", __VA_ARGS__)"
-    "#define LOGI(...) do { __android_log_print(ANDROID_LOG_INFO, \\"GodHandRecomp\\", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)"
+    [=[#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "GodHandRecomp", __VA_ARGS__)]=]
+    [=[#define LOGI(...) do { __android_log_print(ANDROID_LOG_INFO, "GodHandRecomp", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)]=]
     _godhand_jni_source "\${_godhand_jni_source}")
 string(REPLACE
-    "#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, \\"GodHandRecomp\\", __VA_ARGS__)"
-    "#define LOGE(...) do { __android_log_print(ANDROID_LOG_ERROR, \\"GodHandRecomp\\", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)"
+    [=[#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "GodHandRecomp", __VA_ARGS__)]=]
+    [=[#define LOGE(...) do { __android_log_print(ANDROID_LOG_ERROR, "GodHandRecomp", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)]=]
     _godhand_jni_source "\${_godhand_jni_source}")
 string(REPLACE
-    "#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, \\"GodHandRecomp\\", __VA_ARGS__)"
-    "#define LOGW(...) do { __android_log_print(ANDROID_LOG_WARN, \\"GodHandRecomp\\", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)"
+    [=[#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, "GodHandRecomp", __VA_ARGS__)]=]
+    [=[#define LOGW(...) do { __android_log_print(ANDROID_LOG_WARN, "GodHandRecomp", __VA_ARGS__); godhand_native_logf(__VA_ARGS__); } while (0)]=]
     _godhand_jni_source "\${_godhand_jni_source}")
 string(REPLACE
-    "__android_log_print(ANDROID_LOG_INFO, \\"GodHandNative\\", \\"%s\\", line.c_str());"
-    "__android_log_print(ANDROID_LOG_INFO, \\"GodHandNative\\", \\"%s\\", line.c_str());\n                            godhand_native_logf(\\"%s\\", line.c_str());"
+    [=[__android_log_print(ANDROID_LOG_INFO, "GodHandNative", "%s", line.c_str());]=]
+    [=[__android_log_print(ANDROID_LOG_INFO, "GodHandNative", "%s", line.c_str());
+                            godhand_native_logf("%s", line.c_str());]=]
     _godhand_jni_source "\${_godhand_jni_source}")
-file(WRITE "\${_godhand_jni_bridge}" "\${_godhand_jni_source}")
+file(WRITE "${_godhand_jni_bridge}" "${_godhand_jni_source}")
 
 # The upstream Android boot path has historical package IDs in its cache list.
 # Add this app's private cache first; it is where the ISO extraction JNI method
@@ -151,27 +152,27 @@ set_source_files_properties("${_godhand_native_compat_cpp}" PROPERTIES
 # The APK contains executable code and dynamic symbols; build/native-symbols retains
 # the full debug information needed to symbolize Android tombstones.
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(_godhand_llvm_bin "\${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin")
+    set(_godhand_llvm_bin "${CMAKE_ANDROID_NDK}/toolchains/llvm/prebuilt/linux-x86_64/bin")
     if(NOT CMAKE_OBJCOPY)
-        find_program(CMAKE_OBJCOPY NAMES llvm-objcopy HINTS "\${_godhand_llvm_bin}" REQUIRED)
+        find_program(CMAKE_OBJCOPY NAMES llvm-objcopy HINTS "${_godhand_llvm_bin}" REQUIRED)
     endif()
     if(NOT CMAKE_STRIP)
-        find_program(CMAKE_STRIP NAMES llvm-strip HINTS "\${_godhand_llvm_bin}" REQUIRED)
+        find_program(CMAKE_STRIP NAMES llvm-strip HINTS "${_godhand_llvm_bin}" REQUIRED)
     endif()
 
     function(godhand_split_debug_symbols target_name)
-        get_target_property(_target_type \${target_name} TYPE)
+        get_target_property(_target_type ${target_name} TYPE)
         if(NOT _target_type STREQUAL "SHARED_LIBRARY")
             return()
         endif()
-        set(_symbols_dir "\${GODHAND_REPO_ROOT}/build/native-symbols/arm64-v8a")
-        set(_debug_file "\${_symbols_dir}/lib\${target_name}.so.debug")
-        add_custom_command(TARGET \${target_name} POST_BUILD
-            COMMAND "\${CMAKE_COMMAND}" -E make_directory "\${_symbols_dir}"
-            COMMAND "\${CMAKE_OBJCOPY}" --only-keep-debug "$<TARGET_FILE:\${target_name}>" "\${_debug_file}"
-            COMMAND "\${CMAKE_STRIP}" --strip-debug "$<TARGET_FILE:\${target_name}>"
-            COMMAND "\${CMAKE_OBJCOPY}" --add-gnu-debuglink="\${_debug_file}" "$<TARGET_FILE:\${target_name}>"
-            COMMENT "Preserving external debug symbols for \${target_name}"
+        set(_symbols_dir "${GODHAND_REPO_ROOT}/build/native-symbols/arm64-v8a")
+        set(_debug_file "${_symbols_dir}/lib${target_name}.so.debug")
+        add_custom_command(TARGET ${target_name} POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "${_symbols_dir}"
+            COMMAND "${CMAKE_OBJCOPY}" --only-keep-debug "$<TARGET_FILE:${target_name}>" "${_debug_file}"
+            COMMAND "${CMAKE_STRIP}" --strip-debug "$<TARGET_FILE:${target_name}>"
+            COMMAND "${CMAKE_OBJCOPY}" --add-gnu-debuglink="${_debug_file}" "$<TARGET_FILE:${target_name}>"
+            COMMENT "Preserving external debug symbols for ${target_name}"
             VERBATIM
         )
     endfunction()
