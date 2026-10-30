@@ -4,6 +4,8 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.ViewGroup
@@ -111,6 +113,12 @@ class IsoPickerActivity : ComponentActivity() {
             setOnClickListener { shareLog() }
         }
         content.addView(exportButton, matchWrap())
+
+        val monitorButton = Button(this).apply {
+            text = "Monitor de log em tempo real"
+            setOnClickListener { showDiagnosticMonitor() }
+        }
+        content.addView(monitorButton, matchWrap())
 
         val clearButton = Button(this).apply {
             text = "Limpar log"
@@ -348,6 +356,52 @@ class IsoPickerActivity : ComponentActivity() {
             }
         }
         return uri.lastPathSegment?.substringAfterLast('/') ?: "arquivo.iso"
+    }
+
+    private fun showDiagnosticMonitor() {
+        DiagnosticLog.log("LOG_MONITOR", "Live diagnostic monitor opened")
+        val logView = TextView(this).apply {
+            textSize = 11f
+            typeface = android.graphics.Typeface.MONOSPACE
+            setTextIsSelectable(true)
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+        }
+        val scroll = ScrollView(this).apply {
+            addView(logView)
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Monitor de diagnóstico")
+            .setView(scroll)
+            .setPositiveButton("Fechar", null)
+            .setNeutralButton("Atualizar", null)
+            .setNegativeButton("Compartilhar", null)
+            .create()
+
+        val handler = Handler(Looper.getMainLooper())
+        val refresh = object : Runnable {
+            override fun run() {
+                if (!dialog.isShowing) return
+                logView.text = DiagnosticLog.readAll()
+                scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+                handler.postDelayed(this, 1000L)
+            }
+        }
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                logView.text = DiagnosticLog.readAll()
+                scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+                shareLog()
+            }
+            handler.post(refresh)
+        }
+        dialog.setOnDismissListener {
+            handler.removeCallbacks(refresh)
+            DiagnosticLog.log("LOG_MONITOR", "Live diagnostic monitor closed")
+        }
+        dialog.show()
     }
 
     private fun shareLog() {
