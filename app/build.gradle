@@ -41,6 +41,20 @@ android {
         }
     }
 
+    buildTypes {
+        debug {
+            debuggable true
+            jniDebuggable true
+        }
+        release {
+            debuggable false
+            minifyEnabled false
+            shrinkResources false
+            // Native DWARF symbols are split by CMake into build/native-symbols.
+            // Keep the APK's .so files stripped while preserving external symbols.
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
